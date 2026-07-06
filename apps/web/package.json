@@ -1,0 +1,22 @@
+{
+  "name": "@rpr/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Phaser 4 web app for Rug Pull Rumble.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 4173",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@rpr/content": "workspace:*",
+    "@rpr/sim": "workspace:*",
+    "phaser": "^4.2.0"
+  },
+  "devDependencies": {
+    "vite": "^5.4.10"
+  }
+}

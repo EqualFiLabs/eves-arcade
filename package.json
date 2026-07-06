@@ -1,0 +1,38 @@
+{
+  "name": "rug-pull-rumble",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Proof of Fight V1 — a Sminem vs Bogdanoff crypto-parody Phaser 4 fighting game.",
+  "scripts": {
+    "dev": "pnpm --filter @rpr/web dev",
+    "build": "pnpm --filter @rpr/web build",
+    "preview": "pnpm --filter @rpr/web preview",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "eslint .",
+    "test": "pnpm test:sim",
+    "test:sim": "vitest run",
+    "test:sim:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:install": "playwright install --with-deps chromium"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "@playwright/test": "^1.48.0",
+    "@rpr/content": "workspace:*",
+    "@rpr/sim": "workspace:*",
+    "@types/node": "^22.8.0",
+    "eslint": "^9.13.0",
+    "typescript": "^5.6.3",
+    "typescript-eslint": "^8.12.0",
+    "vitest": "^2.1.4"
+  },
+  "packageManager": "pnpm@10.23.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

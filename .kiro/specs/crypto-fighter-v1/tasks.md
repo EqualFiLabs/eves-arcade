@@ -1,0 +1,400 @@
+# Implementation Plan: Rug Pull Rumble V1
+
+## Overview
+
+Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeScript combat simulation package, data-driven fighter content, one Sminem vs Bogdanoff CPU fight, one stage, static deployment support, share copy, and configurable distribution hooks. The implementation proceeds bottom-up: workspace setup, simulation core, content definitions, Phaser integration, presentation, CPU behavior, result flow, testing, and release packaging.
+
+## Tasks
+
+- [ ] 1. Create the greenfield project workspace
+  - [ ] 1.1 Initialize the repository structure
+    - Details: Create the monorepo layout with `apps/web`, `packages/sim`, `packages/content`, `tests/sim`, and `tests/e2e`.
+    - _Requirements: 2.1, 2.2, 2.3, 2.4_
+  - [ ] 1.2 Configure package management
+    - Details: Add `pnpm-workspace.yaml`, root `package.json`, shared scripts, and workspace references for the web app, simulation package, and content package.
+    - _Requirements: 2.2, 2.3, 2.4_
+  - [ ] 1.3 Configure TypeScript
+    - Details: Add `tsconfig.base.json` and package-level TypeScript configs with strict mode enabled.
+    - _Requirements: 2.1, 2.3, 16.4_
+  - [ ] 1.4 Configure Vite for the web app
+    - Details: Add `apps/web/vite.config.ts`, `index.html`, static asset handling, and production build output.
+    - _Requirements: 1.1, 1.3, 2.2, 2.4_
+  - [ ] 1.5 Add Phaser 4 dependency
+    - Details: Install Phaser 4 in `apps/web` and confirm the app can initialize a minimal Phaser game instance.
+    - _Requirements: 2.1, 2.3_
+  - [ ] 1.6 Add core developer scripts
+    - Details: Add scripts for `dev`, `build`, `test`, `test:sim`, `test:e2e`, `lint`, and `typecheck`.
+    - _Requirements: 2.3, 2.4, 16.4_
+
+- [ ] 2. Build the simulation package foundation
+  - [ ] 2.1 Create simulation package exports
+    - Details: Add `packages/sim/src/index.ts` and export the public simulation interfaces.
+    - _Requirements: 6.1, 6.4, 15.3, 16.4_
+  - [ ] 2.2 Define primitive simulation types
+    - Details: Implement `Vec2`, `Box`, `TimedBox`, `FighterId`, `MoveId`, `StageId`, and related ID types.
+    - _Requirements: 6.1, 6.6, 6.7, 16.2_
+  - [ ] 2.3 Define combat input types
+    - Details: Implement `CombatInput`, `RawInputState`, input directions, and neutral input helpers.
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8_
+  - [ ] 2.4 Define fighter state models
+    - Details: Implement `FighterState`, `FighterActionState`, `MoveRuntimeState`, stun fields, health, meter, position, velocity, facing, and runtime flags.
+    - _Requirements: 6.2, 6.4, 6.5, 6.9, 7.7, 10.1, 10.3_
+  - [ ] 2.5 Define round and game state models
+    - Details: Implement `GameState`, `RoundStatus`, `RoundEndResult`, frame counter, seed, stage state, and last event list.
+    - _Requirements: 3.4, 3.5, 6.9, 8.7, 8.8, 10.7_
+  - [ ] 2.6 Define combat events
+    - Details: Implement `HitEvent`, `BlockEvent`, `MeterEvent`, `MoveStartedEvent`, `RoundEndedEvent`, and `CpuDecisionEvent`.
+    - _Requirements: 6.10, 10.4, 10.5, 11.3, 11.4, 12.2, 12.3_
+
+- [ ] 3. Build data definitions for fighters, moves, and stage
+  - [ ] 3.1 Define fighter definition schema
+    - Details: Create `FighterDefinition` with health, meter, speed, jump, gravity, pushbox, hurtboxes, moves, animation keys, audio keys, and copy keys.
+    - _Requirements: 7.1, 8.2, 16.4_
+  - [ ] 3.2 Define move definition schema
+    - Details: Create `MoveDefinition` with startup, active, recovery, damage, chip damage, hitstun, blockstun, hitstop, meter gain, meter cost, blockable flag, hitboxes, hurtboxes, and presentation keys.
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 7.2, 7.3, 7.4, 7.5, 7.6_
+  - [ ] 3.3 Define stage definition schema
+    - Details: Create `StageDefinition` with world bounds, floor, camera config, background assets, foreground assets, audio key, and copy keys.
+    - _Requirements: 3.3, 11.1, 11.2, 11.8_
+  - [ ] 3.4 Implement Sminem fighter definition
+    - Details: Add `packages/content/src/fighters/sminem.ts` with V1 stats, parody archetype, pushbox, baseline hurtboxes, and move references.
+    - _Requirements: 3.1, 7.1, 7.8, 7.9_
+  - [ ] 3.5 Implement Bogdanoff fighter definition
+    - Details: Add `packages/content/src/fighters/bogdanoff.ts` with CPU boss stats, parody archetype, pushbox, baseline hurtboxes, and move references.
+    - _Requirements: 3.2, 8.1, 8.2, 8.7, 8.8_
+  - [ ] 3.6 Implement Sminem move definitions
+    - Details: Add `sminem_light`, `sminem_heavy`, `green_candle`, and `bull_run_barrage`.
+    - _Requirements: 5.5, 5.6, 5.7, 5.8, 7.2, 7.3, 7.4, 7.5, 7.6_
+  - [ ] 3.7 Implement Bogdanoff move definitions
+    - Details: Add `bogdanoff_backhand`, `phone_slam`, `red_candle`, and optional `activate_global_dump`.
+    - _Requirements: 8.3, 8.4, 8.5, 8.10_
+  - [ ] 3.8 Implement V1 stage definition
+    - Details: Add `marketControlRoom` stage content with world bounds, floor, camera behavior, and placeholder asset keys.
+    - _Requirements: 3.3, 11.1, 11.2, 11.8_
+  - [ ] 3.9 Add content validation helpers
+    - Details: Add functions that verify required fighters, moves, stage fields, copy keys, asset keys, and distribution hooks exist.
+    - _Requirements: 13.4, 13.7, 17.1, 17.6, 17.7_
+
+- [ ] 4. Checkpoint: simulation and content skeleton
+  - Details: Run typecheck and content validation. Confirm the project can build the empty web app and import `packages/sim` and `packages/content`.
+  - _Requirements: 2.3, 2.4, 16.4_
+
+- [ ] 5. Implement combat movement and state transitions
+  - [ ] 5.1 Create `CombatEngine`
+    - Details: Implement `CombatEngine` with `state`, `step(playerInput, cpuInput)`, `reset(seed)`, and `getDebugSnapshot()`.
+    - _Requirements: 6.4, 6.5, 15.3, 16.1_
+  - [ ] 5.2 Initialize V1 fight state
+    - Details: Create a factory that always spawns Sminem as Player and Bogdanoff as CPU on the configured V1 stage.
+    - _Requirements: 3.1, 3.2, 3.3, 3.7, 3.8_
+  - [ ] 5.3 Implement fixed-step fighter movement
+    - Details: Apply horizontal movement, crouch state, jump state, gravity, grounded checks, and floor collision.
+    - _Requirements: 5.1, 5.2, 5.3, 6.4, 15.1, 15.2_
+  - [ ] 5.4 Implement facing resolution
+    - Details: Update fighter facing based on relative positions and side crossing.
+    - _Requirements: 6.7, 6.8_
+  - [ ] 5.5 Implement pushbox collision
+    - Details: Prevent invalid fighter overlap using pushbox separation within stage bounds.
+    - _Requirements: 6.6_
+  - [ ] 5.6 Implement invalid action guards
+    - Details: Prevent normal actions during hitstun, blockstun, recovery, KO, and other non-controllable states.
+    - _Requirements: 5.9, 6.4, 6.5, 9.6_
+  - [ ] 5.7 Add movement unit tests
+    - Details: Test walking, jumping, crouching, facing, pushbox separation, and invalid input safety.
+    - _Requirements: 5.1, 5.2, 5.3, 5.9, 6.5, 6.6, 6.8_
+
+- [ ] 6. Implement moves, hit detection, block detection, and KO
+  - [ ] 6.1 Implement `MoveResolver`
+    - Details: Start moves from valid input, advance startup, active, recovery, and complete phases, and clear finished moves.
+    - _Requirements: 5.5, 5.6, 5.7, 5.8, 6.4_
+  - [ ] 6.2 Implement local hitbox and hurtbox transforms
+    - Details: Convert fighter-local boxes into world-space boxes using position and facing direction.
+    - _Requirements: 6.1, 6.7, 16.2_
+  - [ ] 6.3 Implement `CollisionSystem.findHitContacts`
+    - Details: Detect active hitboxes overlapping defender hurtboxes and return hit contacts.
+    - _Requirements: 6.1, 6.2_
+  - [ ] 6.4 Implement block detection
+    - Details: Resolve blockable attacks against valid block state and apply blockstun plus chip damage rules.
+    - _Requirements: 5.4, 6.3_
+  - [ ] 6.5 Implement damage and hitstun
+    - Details: Apply damage, hitstun, hitstop, and hit events when attacks connect.
+    - _Requirements: 6.1, 6.2, 6.10, 11.3_
+  - [ ] 6.6 Implement one-hit-per-move tracking
+    - Details: Track hit targets inside `MoveRuntimeState` so single-hit moves do not apply damage repeatedly during active frames.
+    - _Requirements: 6.1, 6.2_
+  - [ ] 6.7 Implement health clamping
+    - Details: Clamp health between zero and max health after all damage events.
+    - _Requirements: 6.9, 8.6, 10.1, 10.2, 10.4_
+  - [ ] 6.8 Implement `RoundResolver`
+    - Details: Detect KO, set winner and loser, emit round ended event, and stop normal combat input.
+    - _Requirements: 3.4, 3.5, 6.9, 8.7, 8.8, 10.7_
+  - [ ] 6.9 Add combat unit tests
+    - Details: Test active frame hits, whiffs, blocking, hitstun, blockstun, one-hit-per-move, health clamp, and KO finality.
+    - _Requirements: 6.1, 6.2, 6.3, 6.5, 6.9_
+
+- [ ] 7. Implement meter and super behavior
+  - [ ] 7.1 Create `MeterSystem`
+    - Details: Implement meter gain, meter spend, max meter clamp, and zero floor.
+    - _Requirements: 7.5, 7.6, 7.7, 10.3, 10.5_
+  - [ ] 7.2 Wire meter gain into combat events
+    - Details: Apply meter gain on configured events such as move use, hit landed, or hit received.
+    - _Requirements: 7.7, 10.5_
+  - [ ] 7.3 Gate Sminem super by meter
+    - Details: Require sufficient meter before `bull_run_barrage` can start.
+    - _Requirements: 5.8, 7.5, 7.6_
+  - [ ] 7.4 Spend meter when super starts
+    - Details: Deduct configured meter cost exactly once when super starts.
+    - _Requirements: 7.6, 10.5_
+  - [ ] 7.5 Add meter unit tests
+    - Details: Test meter gain, max clamp, super denial, super spend, and meter UI state values.
+    - _Requirements: 7.5, 7.6, 7.7, 10.3, 10.5_
+
+- [ ] 8. Checkpoint: playable simulation without Phaser presentation
+  - Details: Run all simulation tests. Confirm a headless fight can be stepped from initialization to KO using scripted inputs.
+  - _Requirements: 3.4, 6.1, 6.9, 7.6, 8.7, 15.3_
+
+- [ ] 9. Implement local CPU behavior
+  - [ ] 9.1 Define CPU profile schema
+    - Details: Create `CpuProfile` with reaction frames, aggression, block chance, punish chance, pressure chance, special chance, and seed offset.
+    - _Requirements: 9.1, 9.7, 9.8_
+  - [ ] 9.2 Implement `BogdanoffBossBrain`
+    - Details: Decide CPU inputs from game state, distance, player state, health, meter, block frequency, recent whiffs, and seeded variation.
+    - _Requirements: 8.1, 8.9, 8.10, 9.1, 9.2, 9.3, 9.7_
+  - [ ] 9.3 Implement distance behavior
+    - Details: Make Bogdanoff approach, hold, or use ranged or advancing actions based on distance.
+    - _Requirements: 9.2_
+  - [ ] 9.4 Implement close-range behavior
+    - Details: Make Bogdanoff attack, block, retreat, or use boss actions at close range.
+    - _Requirements: 9.3_
+  - [ ] 9.5 Implement anti-passive-block behavior
+    - Details: Track repeated player blocking and allow Bogdanoff to pressure passive blocking with defined behavior.
+    - _Requirements: 9.4_
+  - [ ] 9.6 Implement whiff punish behavior
+    - Details: Detect recent player whiffs near Bogdanoff and allow punish attempts under configured conditions.
+    - _Requirements: 9.5_
+  - [ ] 9.7 Enforce CPU legality through simulation
+    - Details: Ensure CPU input uses the same `CombatEngine` legality rules as Player input and cannot bypass invalid states.
+    - _Requirements: 9.6_
+  - [ ] 9.8 Add CPU unit tests
+    - Details: Test approach, attack, block, punish, variation, and invalid state behavior.
+    - _Requirements: 8.1, 8.9, 8.10, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
+
+- [ ] 10. Implement Phaser scene foundation
+  - [ ] 10.1 Implement `GameConfig`
+    - Details: Configure Phaser canvas, scale mode, background, parent element, physics setting if used, and registered scenes.
+    - _Requirements: 1.1, 2.1, 15.1_
+  - [ ] 10.2 Implement `BootScene`
+    - Details: Check browser support and route to unsupported view or preload.
+    - _Requirements: 1.4, 2.1_
+  - [ ] 10.3 Implement `UnsupportedBrowserView`
+    - Details: Show readable failure reasons instead of silent failure.
+    - _Requirements: 1.4_
+  - [ ] 10.4 Implement `PreloadScene`
+    - Details: Load required assets through the asset manifest and show loading progress.
+    - _Requirements: 1.5, 11.1, 12.1, 15.5_
+  - [ ] 10.5 Implement `MenuScene`
+    - Details: Show title, start action, controls hint, mute hint, and optional credits link. Do not require character selection.
+    - _Requirements: 1.6, 3.7, 3.8, 5.10, 12.7_
+  - [ ] 10.6 Implement `FightScene`
+    - Details: Instantiate combat engine, CPU controller, input mapper, renderers, HUD, audio controller, and fixed-step update loop.
+    - _Requirements: 3.1, 3.2, 3.3, 6.10, 8.1, 9.1, 15.3_
+  - [ ] 10.7 Implement fixed-step accumulator cap
+    - Details: Advance the simulation with fixed-size steps and cap accumulated time after frame stalls.
+    - _Requirements: 15.3, 15.4, 15.7_
+
+- [ ] 11. Implement browser input
+  - [ ] 11.1 Implement `KeyboardInputSource`
+    - Details: Read default keyboard bindings for movement, block, light, heavy, special, super, start, and mute.
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.10_
+  - [ ] 11.2 Implement `InputMapper`
+    - Details: Convert raw input into normalized `CombatInput` for the simulation.
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8_
+  - [ ] 11.3 Add optional `GamepadInputSource`
+    - Details: Add gamepad support only as optional input. Keep keyboard fully supported.
+    - _Requirements: 5.10, 5.11_
+  - [ ] 11.4 Add input smoke tests
+    - Details: Validate that the fight accepts keyboard movement and attacks in browser e2e tests.
+    - _Requirements: 5.1, 5.5, 5.6, 5.10_
+
+- [ ] 12. Checkpoint: browser fight starts with placeholder rendering
+  - Details: Run the app locally. Confirm menu starts the fight, Sminem and Bogdanoff spawn, keyboard input reaches the simulation, and CPU inputs are generated.
+  - _Requirements: 1.1, 1.6, 3.1, 3.2, 5.10, 8.1_
+
+- [ ] 13. Implement placeholder visual rendering
+  - [ ] 13.1 Implement `StageRenderer`
+    - Details: Render the V1 stage with placeholder or initial background assets.
+    - _Requirements: 3.3, 11.1, 11.8_
+  - [ ] 13.2 Implement `FighterRenderer`
+    - Details: Render Sminem and Bogdanoff using placeholder shapes or sprites tied to `FighterState`.
+    - _Requirements: 7.1, 8.2, 6.10_
+  - [ ] 13.3 Implement fighter facing and state visuals
+    - Details: Flip fighter presentation based on facing and show idle, walk, crouch, jump, attack, block, hitstun, blockstun, and KO states.
+    - _Requirements: 6.7, 6.8, 7.1, 8.2_
+  - [ ] 13.4 Implement camera behavior
+    - Details: Keep both fighters visible during normal play using the stage camera config.
+    - _Requirements: 11.2_
+  - [ ] 13.5 Implement `HudView`
+    - Details: Render Sminem health, Bogdanoff health, Sminem meter, themed round text, KO text, win or loss text, and restart hint.
+    - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9_
+  - [ ] 13.6 Add fight flow e2e coverage
+    - Details: Verify fighters and HUD appear, inputs move the player, CPU acts, and KO routes to result.
+    - _Requirements: 3.4, 3.5, 5.10, 8.1, 10.1, 10.2, 10.7_
+
+- [ ] 14. Implement effects and combat feedback
+  - [ ] 14.1 Implement hit feedback
+    - Details: Spawn hit sparks, hit freeze, or screen shake when `HitEvent` is emitted.
+    - _Requirements: 11.3, 6.10_
+  - [ ] 14.2 Implement block feedback
+    - Details: Spawn distinct block visual feedback when `BlockEvent` is emitted.
+    - _Requirements: 11.4_
+  - [ ] 14.3 Implement special move feedback
+    - Details: Show stronger visual effects for `green_candle` and `red_candle`.
+    - _Requirements: 7.4, 8.5, 11.5_
+  - [ ] 14.4 Implement super move feedback
+    - Details: Show stronger visual and timing emphasis for `bull_run_barrage`.
+    - _Requirements: 5.8, 7.5, 7.6, 11.5_
+  - [ ] 14.5 Implement KO presentation
+    - Details: Show a distinct KO effect, fighter KO state, and result transition.
+    - _Requirements: 6.9, 8.7, 8.8, 11.6_
+  - [ ] 14.6 Tune visual readability
+    - Details: Ensure effects do not hide health, fighter state, hitboxes during debug, or essential action timing for too long.
+    - _Requirements: 11.7, 11.8, 15.1_
+
+- [ ] 15. Implement audio
+  - [ ] 15.1 Create `AudioController`
+    - Details: Load and play UI, attack, hit, block, special, super, KO, victory, and defeat audio keys.
+    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
+  - [ ] 15.2 Implement browser audio unlock
+    - Details: Keep the game playable if autoplay is blocked and unlock audio after user interaction.
+    - _Requirements: 12.6_
+  - [ ] 15.3 Implement mute toggle
+    - Details: Add mute and unmute behavior from menu and fight controls.
+    - _Requirements: 12.7_
+  - [ ] 15.4 Add safe missing-audio behavior
+    - Details: Skip missing audio keys, log warnings in development, and continue gameplay.
+    - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
+  - [ ] 15.5 Verify audio asset rights
+    - Details: Ensure no copyrighted music, clips, voice lines, or unlicensed assets are included.
+    - _Requirements: 12.8, 17.1, 17.6, 17.7_
+
+- [ ] 16. Checkpoint: playable vertical slice
+  - Details: Confirm the game has a playable Sminem vs Bogdanoff fight with health, meter, CPU, hit feedback, block feedback, KO, restart, and no backend dependency.
+  - _Requirements: 1.1, 3.1, 3.2, 3.4, 3.6, 5.10, 8.1, 10.7, 15.1, 18.1, 18.9_
+
+- [ ] 17. Implement parody copy and meme presentation
+  - [ ] 17.1 Create `gameCopy.ts`
+    - Details: Add title, subtitle, round start lines, fight start lines, KO lines, win lines, loss lines, restart hints, mute hints, and unsupported-browser copy.
+    - _Requirements: 4.1, 4.5, 10.6, 10.7, 14.3_
+  - [ ] 17.2 Add Sminem-specific copy
+    - Details: Add Sminem win, loss, move, and presentation strings with retail hero meme tone.
+    - _Requirements: 4.3, 7.8, 7.9_
+  - [ ] 17.3 Add Bogdanoff-specific copy
+    - Details: Add Bogdanoff boss, move, win, loss, and market-villain parody strings.
+    - _Requirements: 4.4, 8.5, 8.7, 8.8_
+  - [ ] 17.4 Add parody safety review pass
+    - Details: Review copy so satire is obvious, protected brands are not used as game identity, and unverified harmful factual claims are not presented as fact.
+    - _Requirements: 4.2, 4.6, 17.2, 17.3, 17.4, 17.5_
+  - [ ] 17.5 Wire copy into scenes
+    - Details: Use configured copy in menu, fight, HUD, KO, result, unsupported browser, and share surfaces.
+    - _Requirements: 4.1, 4.5, 10.6, 10.7, 14.2, 14.3_
+
+- [ ] 18. Implement result screen, shareability, and distribution hooks
+  - [ ] 18.1 Implement `ResultScene`
+    - Details: Display win or loss state, parody result copy, restart action, share section, and distribution section.
+    - _Requirements: 3.5, 3.6, 7.8, 7.9, 8.7, 8.8, 10.7, 10.8, 10.9_
+  - [ ] 18.2 Implement restart flow
+    - Details: Allow the Player to restart the fight without refreshing the browser.
+    - _Requirements: 3.6, 13.5_
+  - [ ] 18.3 Implement `ShareView`
+    - Details: Generate share text and visible share URL using parody meme tone.
+    - _Requirements: 14.1, 14.2, 14.3, 14.4_
+  - [ ] 18.4 Implement clipboard copy fallback
+    - Details: Use clipboard API when available and fall back to visible share text or URL when unavailable.
+    - _Requirements: 14.5, 14.6_
+  - [ ] 18.5 Implement `distributionHooks.ts`
+    - Details: Add configurable hook definitions with id, label, description, URL, enabled flag, and placement.
+    - _Requirements: 13.1, 13.4, 13.6_
+  - [ ] 18.6 Implement `DistributionHookView`
+    - Details: Render enabled hooks on the result screen, keep hooks separate from replay controls, and hide missing or disabled hooks safely.
+    - _Requirements: 13.1, 13.2, 13.3, 13.5, 13.7_
+  - [ ] 18.7 Add result screen e2e tests
+    - Details: Test win or loss display, restart, share copy, clipboard fallback path, enabled hooks, and disabled hook safety.
+    - _Requirements: 3.5, 3.6, 13.1, 13.5, 13.7, 14.2, 14.6_
+
+- [ ] 19. Implement debugging support
+  - [ ] 19.1 Create `CombatDebugSnapshot`
+    - Details: Expose frame, fighter state, current move, health, meter, hitboxes, hurtboxes, pushboxes, and CPU decision data.
+    - _Requirements: 16.1, 16.2, 16.5_
+  - [ ] 19.2 Implement `DebugRenderer`
+    - Details: Draw collision boxes and show combat state when debug mode is enabled.
+    - _Requirements: 16.1, 16.2_
+  - [ ] 19.3 Add debug mode flag
+    - Details: Enable debug through a local development flag or query parameter and disable by default in public builds.
+    - _Requirements: 16.3, 16.6_
+  - [ ] 19.4 Add move tuning helpers
+    - Details: Make move data easy to update without modifying unrelated systems.
+    - _Requirements: 16.4_
+  - [ ] 19.5 Verify debug isolation
+    - Details: Confirm public build hides debug overlays by default.
+    - _Requirements: 16.3, 16.6_
+
+- [ ] 20. Checkpoint: content-complete V1 candidate
+  - Details: Run local browser QA with debug enabled and disabled. Confirm all V1 content appears, copy fits parody tone, hooks work, restart works, and combat is playable.
+  - _Requirements: 3, 4, 7, 8, 10, 11, 13, 14, 16, 17_
+
+- [ ] 21. Add testing coverage and quality gates
+  - [ ] 21.1 Complete simulation unit tests
+    - Details: Ensure `combat-engine`, `collision-system`, `move-resolver`, `meter-system`, `round-resolver`, and `cpu-controller` tests cover required behavior.
+    - _Requirements: 5.9, 6.1, 6.2, 6.3, 6.4, 6.5, 6.9, 7.6, 7.7, 9.6_
+  - [ ] 21.2 Add content validation tests
+    - Details: Verify required fighter definitions, moves, stage, copy keys, asset manifest keys, distribution hooks, and attribution metadata.
+    - _Requirements: 3.1, 3.2, 3.3, 4.1, 7.1, 8.2, 13.4, 17.6, 17.7_
+  - [ ] 21.3 Add browser load e2e test
+    - Details: Verify the game loads from the dev server, shows loading feedback, reaches menu, and starts the fight.
+    - _Requirements: 1.1, 1.5, 1.6, 2.3_
+  - [ ] 21.4 Add fight flow e2e test
+    - Details: Verify Player movement, attack input, CPU action, health UI, meter UI, and KO result routing.
+    - _Requirements: 5.1, 5.5, 5.6, 8.1, 10.1, 10.2, 10.3, 10.7_
+  - [ ] 21.5 Add result screen e2e test
+    - Details: Verify win or loss result, restart, share copy, distribution hooks, disabled hook handling, and mute availability.
+    - _Requirements: 3.5, 3.6, 12.7, 13, 14_
+  - [ ] 21.6 Add static build smoke test
+    - Details: Build production assets and serve them locally to confirm the game runs without backend services.
+    - _Requirements: 1.3, 2.2, 2.4, 18.9_
+
+- [ ] 22. Tune combat feel and difficulty
+  - [ ] 22.1 Tune Sminem movement
+    - Details: Adjust walk speed, back walk speed, jump velocity, gravity, and attack ranges for responsive feel.
+    - _Requirements: 5.1, 5.2, 5.3, 15.1, 15.2_
+  - [ ] 22.2 Tune Sminem move timing
+    - Details: Adjust light, heavy, special, and super startup, active, recovery, damage, hitstun, blockstun, and meter values.
+    - _Requirements: 7.2, 7.3, 7.4, 7.5, 7.6_
+  - [ ] 22.3 Tune Bogdanoff boss kit
+    - Details: Adjust boss health, move ranges, damage, recovery, special frequency, and punish windows.
+    - _Requirements: 8.3, 8.4, 8.5, 8.9, 8.10_
+  - [ ] 22.4 Tune CPU profile
+    - Details: Adjust reaction frames, aggression, block chance, punish chance, pressure behavior, and variation.
+    - _Requirements: 9.2, 9.3, 9.4, 9.5, 9.7, 9.8_
+  - [ ] 22.5 Run first-time player sanity pass
+    - Details: Confirm Bogdanoff is beatable after reasonable attempts but dangerous enough to punish ignored blocking, spacing, and timing.
+    - _Requirements: 8.9, 8.10_
+
+- [ ] 23. Optimize performance and release readiness
+  - [ ] 23.1 Review asset sizes
+    - Details: Keep required V1 asset size reasonable for casual link sharing.
+    - _Requirements: 15.5, 15.6_
+  - [ ] 23.2 Ensure assets preload before combat
+    - Details: Avoid unnecessary network requests during active combat.
+    - _Requirements: 15.5_
+  - [ ] 23.3 Test frame stall recovery
+    - Details: Simulate tab stalls or large frame deltas and confirm combat state does not corrupt.
+    - _Requirements: 15.4, 15.7_
+  - [ ] 23.4 Verify supported desktop browsers
+    - Details: Test current Chromium-based browser, Firefox if feasible, and Safari if feasible.
+    - _Requirements: 1.1, 1.4, 15.1_
+  - [ ] 23.5 Verify no non-goal dependency slipped in
+    - Details: Confirm V1 does not require online multiplayer, rollback, matchmaking, wallet login, blockchain transactions, token rewards, accounts, backend database, full roster, mobile controls, campaign, level editor, modding, or UGC.
+    - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.8, 18.9, 18.10, 18.11, 18.12, 18.13_
+
+- [ ] 24. Final checkpoint: V1 release candidate
+  - Details: Run `typecheck`, all simulation tests, content validation tests, browser e2e tests, static build smoke test, and manual QA. Confirm V1 is playable from a static URL, Sminem vs Bogdanoff works, restart works, share copy works, distribution hooks work, audio can be muted, debug is hidden by default, and no backend or wallet is required.
+  - _Requirements: 1 through 18_
