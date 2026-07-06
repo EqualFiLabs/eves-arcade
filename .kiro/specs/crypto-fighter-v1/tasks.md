@@ -102,32 +102,32 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - Details: Test walking, jumping, crouching, facing, pushbox separation, and invalid input safety.
     - _Requirements: 5.1, 5.2, 5.3, 5.9, 6.5, 6.6, 6.8_
 
-- [ ] 6. Implement moves, hit detection, block detection, and KO
-  - [ ] 6.1 Implement `MoveResolver`
+- [x] 6. Implement moves, hit detection, block detection, and KO
+  - [x] 6.1 Implement `MoveResolver`
     - Details: Start moves from valid input, advance startup, active, recovery, and complete phases, and clear finished moves.
     - _Requirements: 5.5, 5.6, 5.7, 5.8, 6.4_
-  - [ ] 6.2 Implement local hitbox and hurtbox transforms
+  - [x] 6.2 Implement local hitbox and hurtbox transforms
     - Details: Convert fighter-local boxes into world-space boxes using position and facing direction.
     - _Requirements: 6.1, 6.7, 16.2_
-  - [ ] 6.3 Implement `CollisionSystem.findHitContacts`
+  - [x] 6.3 Implement `CollisionSystem.findHitContacts`
     - Details: Detect active hitboxes overlapping defender hurtboxes and return hit contacts.
     - _Requirements: 6.1, 6.2_
-  - [ ] 6.4 Implement block detection
+  - [x] 6.4 Implement block detection
     - Details: Resolve blockable attacks against valid block state and apply blockstun plus chip damage rules.
     - _Requirements: 5.4, 6.3_
-  - [ ] 6.5 Implement damage and hitstun
+  - [x] 6.5 Implement damage and hitstun
     - Details: Apply damage, hitstun, hitstop, and hit events when attacks connect.
     - _Requirements: 6.1, 6.2, 6.10, 11.3_
-  - [ ] 6.6 Implement one-hit-per-move tracking
+  - [x] 6.6 Implement one-hit-per-move tracking
     - Details: Track hit targets inside `MoveRuntimeState` so single-hit moves do not apply damage repeatedly during active frames.
     - _Requirements: 6.1, 6.2_
-  - [ ] 6.7 Implement health clamping
+  - [x] 6.7 Implement health clamping
     - Details: Clamp health between zero and max health after all damage events.
     - _Requirements: 6.9, 8.6, 10.1, 10.2, 10.4_
-  - [ ] 6.8 Implement `RoundResolver`
+  - [x] 6.8 Implement `RoundResolver`
     - Details: Detect KO, set winner and loser, emit round ended event, and stop normal combat input.
     - _Requirements: 3.4, 3.5, 6.9, 8.7, 8.8, 10.7_
-  - [ ] 6.9 Add combat unit tests
+  - [x] 6.9 Add combat unit tests
     - Details: Test active frame hits, whiffs, blocking, hitstun, blockstun, one-hit-per-move, health clamp, and KO finality.
     - _Requirements: 6.1, 6.2, 6.3, 6.5, 6.9_
 

@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import { CombatEngine, NEUTRAL_INPUT, type CombatEvent } from '@rpr/sim';
-import { createV1FightState, sminemDefinition, bogdanoffDefinition } from '@rpr/content';
+import {
+  createV1FightState,
+  sminemDefinition,
+  bogdanoffDefinition,
+  v1Moves,
+} from '@rpr/content';
 
 function makeEngine(seed = 0): CombatEngine {
   return new CombatEngine({
     createInitialState: (s) => createV1FightState(s),
     definitions: [sminemDefinition, bogdanoffDefinition],
+    moves: v1Moves,
     seed,
   });
 }
@@ -71,6 +77,7 @@ describe('CombatEngine API (5.1)', () => {
     const e = new CombatEngine({
       createInitialState: (s) => createV1FightState(s),
       definitions: [], // no definitions supplied
+      moves: v1Moves,
       seed: 0,
     });
     expect(() => e.step(NEUTRAL_INPUT, NEUTRAL_INPUT)).toThrow(/missing definition/);

@@ -1,13 +1,18 @@
 /**
  * Collision system.
  *
- * `resolvePushboxes` prevents invalid fighter overlap (Req 6.6). Hit detection
- * (`findHitContacts`) is added in Task 6.
+ * `resolvePushboxes` prevents invalid fighter overlap (Req 6.6).
+ * `findHitContacts` detects active hitboxes overlapping defender hurtboxes (Req 6.1/6.2).
  */
 import type { FighterDefinition } from '../data/fighter-definition';
 import type { FighterDefinitionId } from '../primitives';
+import type { FighterId } from '../primitives';
+import type { MoveDefinition } from '../data/move-definition';
+import type { MoveId } from '../primitives';
 import type { Box } from '../primitives';
+import type { FighterState } from '../state/fighter';
 import type { GameState } from '../state/game';
+import { boxesOverlap, currentHurtboxes, toWorldBox } from './box-transform';
 
 interface PositionRange {
   lo: number;
@@ -71,4 +76,66 @@ export function resolvePushboxes(
 
   p.position.x += pDir * pShift;
   c.position.x += cDir * cShift;
+}
+
+/** A detected overlap between an attacker's active hitbox and a defender's hurtbox. */
+export interface HitContact {
+  attackerId: FighterId;
+  defenderId: FighterId;
+  moveId: MoveId;
+}
+
+/**
+ * Finds hit contacts for the current frame: for each attacker with a live move,
+ * any active hitbox (per its TimedBox frame range) overlapping the defender's
+ * current hurtbox set yields a contact. Already-hit targets are skipped, which
+ * enforces one-hit-per-move (Property 5) until the resolver marks the target.
+ */
+export function findHitContacts(
+  state: GameState,
+  moves: ReadonlyMap<MoveId, MoveDefinition>,
+  definitions: ReadonlyMap<FighterDefinitionId, FighterDefinition>,
+): HitContact[] {
+  const contacts: HitContact[] = [];
+  const pairs: ReadonlyArray<readonly [FighterState, FighterState]> = [
+    [state.player, state.cpu],
+    [state.cpu, state.player],
+  ];
+
+  for (const [attacker, defender] of pairs) {
+    const move = attacker.currentMove;
+    if (!move) continue;
+    // One-hit-per-move: skip defenders already struck by this execution.
+    if (move.hitTargets.includes(defender.id)) continue;
+
+    const def = moves.get(move.moveId);
+    if (!def) continue;
+
+    const e = move.elapsedFrames;
+    const liveHitboxes = def.hitboxes.filter((b) => e >= b.frameStart && e <= b.frameEnd);
+    if (liveHitboxes.length === 0) continue;
+
+    const defenderDef = definitions.get(defender.definitionId);
+    if (!defenderDef) continue;
+    const hurtboxes = currentHurtboxes(defender, defenderDef);
+
+    let connected = false;
+    for (const hb of liveHitboxes) {
+      const worldHit = toWorldBox(hb, attacker.position, attacker.facing);
+      for (const hurt of hurtboxes) {
+        const worldHurt = toWorldBox(hurt, defender.position, defender.facing);
+        if (boxesOverlap(worldHit, worldHurt)) {
+          connected = true;
+          break;
+        }
+      }
+      if (connected) break;
+    }
+
+    if (connected) {
+      contacts.push({ attackerId: attacker.id, defenderId: defender.id, moveId: def.id });
+    }
+  }
+
+  return contacts;
 }

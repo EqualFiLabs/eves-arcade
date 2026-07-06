@@ -79,4 +79,4 @@ export {
 export type { V1Content, ContentValidationResult } from './validation';
 
 // V1 fight binding
-export { createV1FightState, v1FighterDefinitions } from './fight-state';
+export { createV1FightState, v1FighterDefinitions, v1Moves } from './fight-state';

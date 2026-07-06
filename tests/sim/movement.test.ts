@@ -5,7 +5,13 @@ import {
   NEUTRAL_INPUT,
   createInitialFightState,
 } from '@rpr/sim';
-import { createV1FightState, sminemDefinition, bogdanoffDefinition, marketControlRoom } from '@rpr/content';
+import {
+  createV1FightState,
+  sminemDefinition,
+  bogdanoffDefinition,
+  marketControlRoom,
+  v1Moves,
+} from '@rpr/content';
 
 const RIGHT: CombatInput = { ...NEUTRAL_INPUT, horizontal: 1 };
 const LEFT: CombatInput = { ...NEUTRAL_INPUT, horizontal: -1 };
@@ -16,6 +22,7 @@ function makeEngine(seed = 0): CombatEngine {
   return new CombatEngine({
     createInitialState: (s) => createV1FightState(s),
     definitions: [sminemDefinition, bogdanoffDefinition],
+    moves: v1Moves,
     seed,
   });
 }
