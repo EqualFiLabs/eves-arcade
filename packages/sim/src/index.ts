@@ -22,6 +22,7 @@ export * from './combat/collision-system';
 export * from './combat/move-resolver';
 export * from './combat/hit-resolution';
 export * from './combat/round-resolver';
+export * from './combat/meter-system';
 export * from './combat/combat-engine';
 export * from './data/move-definition';
 export * from './data/fighter-definition';

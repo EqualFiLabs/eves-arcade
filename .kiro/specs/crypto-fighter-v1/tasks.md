@@ -131,24 +131,24 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - Details: Test active frame hits, whiffs, blocking, hitstun, blockstun, one-hit-per-move, health clamp, and KO finality.
     - _Requirements: 6.1, 6.2, 6.3, 6.5, 6.9_
 
-- [ ] 7. Implement meter and super behavior
-  - [ ] 7.1 Create `MeterSystem`
+- [x] 7. Implement meter and super behavior
+  - [x] 7.1 Create `MeterSystem`
     - Details: Implement meter gain, meter spend, max meter clamp, and zero floor.
     - _Requirements: 7.5, 7.6, 7.7, 10.3, 10.5_
-  - [ ] 7.2 Wire meter gain into combat events
+  - [x] 7.2 Wire meter gain into combat events
     - Details: Apply meter gain on configured events such as move use, hit landed, or hit received.
     - _Requirements: 7.7, 10.5_
-  - [ ] 7.3 Gate Sminem super by meter
+  - [x] 7.3 Gate Sminem super by meter
     - Details: Require sufficient meter before `bull_run_barrage` can start.
     - _Requirements: 5.8, 7.5, 7.6_
-  - [ ] 7.4 Spend meter when super starts
+  - [x] 7.4 Spend meter when super starts
     - Details: Deduct configured meter cost exactly once when super starts.
     - _Requirements: 7.6, 10.5_
-  - [ ] 7.5 Add meter unit tests
+  - [x] 7.5 Add meter unit tests
     - Details: Test meter gain, max clamp, super denial, super spend, and meter UI state values.
     - _Requirements: 7.5, 7.6, 7.7, 10.3, 10.5_
 
-- [ ] 8. Checkpoint: playable simulation without Phaser presentation
+- [x] 8. Checkpoint: playable simulation without Phaser presentation
   - Details: Run all simulation tests. Confirm a headless fight can be stepped from initialization to KO using scripted inputs.
   - _Requirements: 3.4, 6.1, 6.9, 7.6, 8.7, 15.3_
 

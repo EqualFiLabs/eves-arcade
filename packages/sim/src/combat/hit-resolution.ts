@@ -11,6 +11,8 @@ import type { FighterState } from '../state/fighter';
 import type { GameState } from '../state/game';
 import type { CombatEvent } from './events';
 import type { HitContact } from './collision-system';
+import { METER_GAIN_ON_HIT_RECEIVED } from '../constants';
+import { grantMeter } from './meter-system';
 
 const clamp = (value: number, lo: number, hi: number): number =>
   value < lo ? lo : value > hi ? hi : value;
@@ -79,6 +81,9 @@ export function resolveHitContact(
   defender.stunFramesRemaining = moveDef.hitstunFrames;
   defender.runtimeFlags.blocking = false;
   applyHitstop(attacker, defender, moveDef.hitstopFrames);
+  // Meter: attacker gains on the connect, defender gains for taking the hit (Req 7.7).
+  grantMeter(attacker, moveDef.meterGainOnHit, 'hit_landed', state.frame, events);
+  grantMeter(defender, METER_GAIN_ON_HIT_RECEIVED, 'hit_received', state.frame, events);
   events.push({
     type: 'hit',
     frame: state.frame,

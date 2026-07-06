@@ -27,6 +27,7 @@ import { findHitContacts, resolvePushboxes } from './collision-system';
 import { advanceMove, canStartMove, startMove } from './move-resolver';
 import { resolveHitContact } from './hit-resolution';
 import { applyRoundEnd, checkRoundEnd } from './round-resolver';
+import { chargeMeter, grantMeter } from './meter-system';
 
 export interface StepResult {
   state: GameState;
@@ -145,13 +146,23 @@ export class CombatEngine {
     if (f.currentMove) return; // mid-attack: input locked
     const moveId = pickMoveId(def, input);
     if (moveId && canStartMove(f, moveId, this.moves)) {
-      startMove(f, moveId, this.moves);
+      const runtime = startMove(f, moveId, this.moves);
+      const moveDef = this.moves.get(moveId);
       events.push({
         type: 'move_started',
         frame: this._state.frame,
         fighterId: f.id,
         moveId,
       });
+      // Meter gain on use (applies to whiffed and connected moves alike).
+      if (moveDef && runtime) {
+        grantMeter(f, moveDef.meterGainOnUse, 'attack_used', this._state.frame, events);
+        // Deduct meter cost exactly once for meter-gated supers (Req 7.4/7.6).
+        if (moveDef.meterCost > 0) {
+          chargeMeter(f, moveDef.meterCost, 'super_spent', this._state.frame, events);
+          runtime.spentMeter = true;
+        }
+      }
       return;
     }
     applyMovementInput(f, def, input);

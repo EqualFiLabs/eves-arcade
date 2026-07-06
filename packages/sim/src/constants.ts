@@ -12,3 +12,6 @@ export const MAX_STEPS_PER_FRAME = 5;
 
 /** Simulation package version. */
 export const SIM_VERSION = '0.0.0';
+
+/** Meter granted to the defender when it takes a clean hit (tunable, Req 7.7). */
+export const METER_GAIN_ON_HIT_RECEIVED = 4;

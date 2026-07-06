@@ -5,6 +5,7 @@
 import type { MoveDefinition } from '../data/move-definition';
 import type { MoveId } from '../primitives';
 import type { FighterState } from '../state/fighter';
+import type { MoveRuntimeState } from '../state/fighter';
 import { canControl } from './movement';
 
 export interface MoveAdvanceResult {
@@ -28,23 +29,25 @@ export function canStartMove(
   return true;
 }
 
-/** Begins a move: creates runtime state, enters the attack state, halts horizontal motion. */
+/** Begins a move: creates runtime state, enters the attack state, halts horizontal motion. Returns the runtime state. */
 export function startMove(
   f: FighterState,
   moveId: MoveId,
   moves: ReadonlyMap<MoveId, MoveDefinition>,
-): void {
+): MoveRuntimeState | undefined {
   const def = moves.get(moveId);
-  if (!def) return;
-  f.currentMove = {
+  if (!def) return undefined;
+  const runtime: MoveRuntimeState = {
     moveId,
     elapsedFrames: 0,
     phase: 'startup',
     hitTargets: [],
     spentMeter: false,
   };
+  f.currentMove = runtime;
   f.currentState = 'attack';
   f.velocity.x = 0;
+  return runtime;
 }
 
 /** Advances one frame of a move's timeline; clears it (and returns to idle) on completion. */
