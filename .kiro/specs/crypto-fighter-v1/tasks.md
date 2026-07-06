@@ -79,26 +79,26 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
   - Details: Run typecheck and content validation. Confirm the project can build the empty web app and import `packages/sim` and `packages/content`.
   - _Requirements: 2.3, 2.4, 16.4_
 
-- [ ] 5. Implement combat movement and state transitions
-  - [ ] 5.1 Create `CombatEngine`
+- [x] 5. Implement combat movement and state transitions
+  - [x] 5.1 Create `CombatEngine`
     - Details: Implement `CombatEngine` with `state`, `step(playerInput, cpuInput)`, `reset(seed)`, and `getDebugSnapshot()`.
     - _Requirements: 6.4, 6.5, 15.3, 16.1_
-  - [ ] 5.2 Initialize V1 fight state
+  - [x] 5.2 Initialize V1 fight state
     - Details: Create a factory that always spawns Sminem as Player and Bogdanoff as CPU on the configured V1 stage.
     - _Requirements: 3.1, 3.2, 3.3, 3.7, 3.8_
-  - [ ] 5.3 Implement fixed-step fighter movement
+  - [x] 5.3 Implement fixed-step fighter movement
     - Details: Apply horizontal movement, crouch state, jump state, gravity, grounded checks, and floor collision.
     - _Requirements: 5.1, 5.2, 5.3, 6.4, 15.1, 15.2_
-  - [ ] 5.4 Implement facing resolution
+  - [x] 5.4 Implement facing resolution
     - Details: Update fighter facing based on relative positions and side crossing.
     - _Requirements: 6.7, 6.8_
-  - [ ] 5.5 Implement pushbox collision
+  - [x] 5.5 Implement pushbox collision
     - Details: Prevent invalid fighter overlap using pushbox separation within stage bounds.
     - _Requirements: 6.6_
-  - [ ] 5.6 Implement invalid action guards
+  - [x] 5.6 Implement invalid action guards
     - Details: Prevent normal actions during hitstun, blockstun, recovery, KO, and other non-controllable states.
     - _Requirements: 5.9, 6.4, 6.5, 9.6_
-  - [ ] 5.7 Add movement unit tests
+  - [x] 5.7 Add movement unit tests
     - Details: Test walking, jumping, crouching, facing, pushbox separation, and invalid input safety.
     - _Requirements: 5.1, 5.2, 5.3, 5.9, 6.5, 6.6, 6.8_
 

@@ -77,3 +77,6 @@ export {
   REQUIRED_V1_STAGE_ID,
 } from './validation';
 export type { V1Content, ContentValidationResult } from './validation';
+
+// V1 fight binding
+export { createV1FightState, v1FighterDefinitions } from './fight-state';
