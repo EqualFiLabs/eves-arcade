@@ -152,29 +152,29 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
   - Details: Run all simulation tests. Confirm a headless fight can be stepped from initialization to KO using scripted inputs.
   - _Requirements: 3.4, 6.1, 6.9, 7.6, 8.7, 15.3_
 
-- [ ] 9. Implement local CPU behavior
-  - [ ] 9.1 Define CPU profile schema
+- [x] 9. Implement local CPU behavior
+  - [x] 9.1 Define CPU profile schema
     - Details: Create `CpuProfile` with reaction frames, aggression, block chance, punish chance, pressure chance, special chance, and seed offset.
     - _Requirements: 9.1, 9.7, 9.8_
-  - [ ] 9.2 Implement `BogdanoffBossBrain`
+  - [x] 9.2 Implement `BogdanoffBossBrain`
     - Details: Decide CPU inputs from game state, distance, player state, health, meter, block frequency, recent whiffs, and seeded variation.
     - _Requirements: 8.1, 8.9, 8.10, 9.1, 9.2, 9.3, 9.7_
-  - [ ] 9.3 Implement distance behavior
+  - [x] 9.3 Implement distance behavior
     - Details: Make Bogdanoff approach, hold, or use ranged or advancing actions based on distance.
     - _Requirements: 9.2_
-  - [ ] 9.4 Implement close-range behavior
+  - [x] 9.4 Implement close-range behavior
     - Details: Make Bogdanoff attack, block, retreat, or use boss actions at close range.
     - _Requirements: 9.3_
-  - [ ] 9.5 Implement anti-passive-block behavior
+  - [x] 9.5 Implement anti-passive-block behavior
     - Details: Track repeated player blocking and allow Bogdanoff to pressure passive blocking with defined behavior.
     - _Requirements: 9.4_
-  - [ ] 9.6 Implement whiff punish behavior
+  - [x] 9.6 Implement whiff punish behavior
     - Details: Detect recent player whiffs near Bogdanoff and allow punish attempts under configured conditions.
     - _Requirements: 9.5_
-  - [ ] 9.7 Enforce CPU legality through simulation
+  - [x] 9.7 Enforce CPU legality through simulation
     - Details: Ensure CPU input uses the same `CombatEngine` legality rules as Player input and cannot bypass invalid states.
     - _Requirements: 9.6_
-  - [ ] 9.8 Add CPU unit tests
+  - [x] 9.8 Add CPU unit tests
     - Details: Test approach, attack, block, punish, variation, and invalid state behavior.
     - _Requirements: 8.1, 8.9, 8.10, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
 

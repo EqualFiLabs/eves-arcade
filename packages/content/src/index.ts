@@ -80,3 +80,7 @@ export type { V1Content, ContentValidationResult } from './validation';
 
 // V1 fight binding
 export { createV1FightState, v1FighterDefinitions, v1Moves } from './fight-state';
+
+// CPU
+export type { CpuProfile } from '@rpr/sim';
+export { bogdanoffCpuProfile } from './cpu/bogdanoff-profile';

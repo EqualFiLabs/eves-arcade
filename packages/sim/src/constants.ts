@@ -15,3 +15,22 @@ export const SIM_VERSION = '0.0.0';
 
 /** Meter granted to the defender when it takes a clean hit (tunable, Req 7.7). */
 export const METER_GAIN_ON_HIT_RECEIVED = 4;
+
+/**
+ * Anchor-to-anchor distance (world units) at which the CPU treats the opponent
+ * as "close" and may attack/block/retreat (Req 9.3). Tunable.
+ */
+export const CPU_CLOSE_RANGE = 96;
+
+/**
+ * Distance at which the CPU may use a ranged/advancing action such as a special
+ * (Req 9.2). Between close and this range the CPU preferentially approaches.
+ * Tunable.
+ */
+export const CPU_SPECIAL_RANGE = 150;
+
+/**
+ * Consecutive frames the player must block before the CPU treats it as passive
+ * blocking and applies pressure (Req 9.4). Tunable.
+ */
+export const CPU_PASSIVE_BLOCK_FRAMES = 45;
