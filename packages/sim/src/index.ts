@@ -12,6 +12,7 @@
 export * from './constants';
 export * from './primitives';
 export * from './input/combat-input';
+export * from './input/input-mapper';
 export * from './state/fighter';
 export * from './state/game';
 export * from './state/factory';

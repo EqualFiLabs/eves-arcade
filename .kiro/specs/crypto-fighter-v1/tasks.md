@@ -178,26 +178,26 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - Details: Test approach, attack, block, punish, variation, and invalid state behavior.
     - _Requirements: 8.1, 8.9, 8.10, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8_
 
-- [ ] 10. Implement Phaser scene foundation
-  - [ ] 10.1 Implement `GameConfig`
+- [x] 10. Implement Phaser scene foundation
+  - [x] 10.1 Implement `GameConfig`
     - Details: Configure Phaser canvas, scale mode, background, parent element, physics setting if used, and registered scenes.
     - _Requirements: 1.1, 2.1, 15.1_
-  - [ ] 10.2 Implement `BootScene`
+  - [x] 10.2 Implement `BootScene`
     - Details: Check browser support and route to unsupported view or preload.
     - _Requirements: 1.4, 2.1_
-  - [ ] 10.3 Implement `UnsupportedBrowserView`
+  - [x] 10.3 Implement `UnsupportedBrowserView`
     - Details: Show readable failure reasons instead of silent failure.
     - _Requirements: 1.4_
-  - [ ] 10.4 Implement `PreloadScene`
+  - [x] 10.4 Implement `PreloadScene`
     - Details: Load required assets through the asset manifest and show loading progress.
     - _Requirements: 1.5, 11.1, 12.1, 15.5_
-  - [ ] 10.5 Implement `MenuScene`
+  - [x] 10.5 Implement `MenuScene`
     - Details: Show title, start action, controls hint, mute hint, and optional credits link. Do not require character selection.
     - _Requirements: 1.6, 3.7, 3.8, 5.10, 12.7_
-  - [ ] 10.6 Implement `FightScene`
+  - [x] 10.6 Implement `FightScene`
     - Details: Instantiate combat engine, CPU controller, input mapper, renderers, HUD, audio controller, and fixed-step update loop.
     - _Requirements: 3.1, 3.2, 3.3, 6.10, 8.1, 9.1, 15.3_
-  - [ ] 10.7 Implement fixed-step accumulator cap
+  - [x] 10.7 Implement fixed-step accumulator cap
     - Details: Advance the simulation with fixed-size steps and cap accumulated time after frame stalls.
     - _Requirements: 15.3, 15.4, 15.7_
 

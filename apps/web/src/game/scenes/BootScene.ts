@@ -1,12 +1,11 @@
 import * as Phaser from 'phaser';
-import { gameCopy } from '@rpr/content';
+import { checkBrowserSupport, type BrowserSupportReport } from '../support/browser-support';
 
 /**
- * Minimal boot scene for the Task 1–4 foundation.
+ * BootScene — first scene. Checks browser runtime support and routes to the
+ * unsupported view or PreloadScene (Req 1.4, design: Boot).
  *
- * Later tasks (Task 10.2) replace this with the real browser-support check and
- * routing to PreloadScene. For now it confirms the Phaser instance boots and that
- * presentation reads copy + content correctly.
+ * Runs no asset loading itself (the progress bar lives in PreloadScene).
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -14,15 +13,15 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    const { width, height } = this.scale;
-
-    this.add
-      .text(width / 2, height / 2, `${gameCopy.title}\n// ${gameCopy.subtitle}`, {
-        fontFamily: 'monospace',
-        fontSize: '40px',
-        color: '#7cf6a4',
-        align: 'center',
-      })
-      .setOrigin(0.5);
+    const report = checkBrowserSupport();
+    if (!report.supported) {
+      this.scene.start('UnsupportedBrowserScene', report);
+      return;
+    }
+    // Stash the report for diagnostics/debug; PreloadScene takes over.
+    this.game.registry.set('browserSupport', report);
+    this.scene.start('PreloadScene');
   }
 }
+
+export type { BrowserSupportReport };
