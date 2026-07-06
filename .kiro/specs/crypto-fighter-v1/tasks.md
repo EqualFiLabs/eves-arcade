@@ -6,43 +6,43 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
 
 ## Tasks
 
-- [ ] 1. Create the greenfield project workspace
-  - [ ] 1.1 Initialize the repository structure
+- [x] 1. Create the greenfield project workspace
+  - [x] 1.1 Initialize the repository structure
     - Details: Create the monorepo layout with `apps/web`, `packages/sim`, `packages/content`, `tests/sim`, and `tests/e2e`.
     - _Requirements: 2.1, 2.2, 2.3, 2.4_
-  - [ ] 1.2 Configure package management
+  - [x] 1.2 Configure package management
     - Details: Add `pnpm-workspace.yaml`, root `package.json`, shared scripts, and workspace references for the web app, simulation package, and content package.
     - _Requirements: 2.2, 2.3, 2.4_
-  - [ ] 1.3 Configure TypeScript
+  - [x] 1.3 Configure TypeScript
     - Details: Add `tsconfig.base.json` and package-level TypeScript configs with strict mode enabled.
     - _Requirements: 2.1, 2.3, 16.4_
-  - [ ] 1.4 Configure Vite for the web app
+  - [x] 1.4 Configure Vite for the web app
     - Details: Add `apps/web/vite.config.ts`, `index.html`, static asset handling, and production build output.
     - _Requirements: 1.1, 1.3, 2.2, 2.4_
-  - [ ] 1.5 Add Phaser 4 dependency
+  - [x] 1.5 Add Phaser 4 dependency
     - Details: Install Phaser 4 in `apps/web` and confirm the app can initialize a minimal Phaser game instance.
     - _Requirements: 2.1, 2.3_
-  - [ ] 1.6 Add core developer scripts
+  - [x] 1.6 Add core developer scripts
     - Details: Add scripts for `dev`, `build`, `test`, `test:sim`, `test:e2e`, `lint`, and `typecheck`.
     - _Requirements: 2.3, 2.4, 16.4_
 
-- [ ] 2. Build the simulation package foundation
-  - [ ] 2.1 Create simulation package exports
+- [x] 2. Build the simulation package foundation
+  - [x] 2.1 Create simulation package exports
     - Details: Add `packages/sim/src/index.ts` and export the public simulation interfaces.
     - _Requirements: 6.1, 6.4, 15.3, 16.4_
-  - [ ] 2.2 Define primitive simulation types
+  - [x] 2.2 Define primitive simulation types
     - Details: Implement `Vec2`, `Box`, `TimedBox`, `FighterId`, `MoveId`, `StageId`, and related ID types.
     - _Requirements: 6.1, 6.6, 6.7, 16.2_
-  - [ ] 2.3 Define combat input types
+  - [x] 2.3 Define combat input types
     - Details: Implement `CombatInput`, `RawInputState`, input directions, and neutral input helpers.
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8_
-  - [ ] 2.4 Define fighter state models
+  - [x] 2.4 Define fighter state models
     - Details: Implement `FighterState`, `FighterActionState`, `MoveRuntimeState`, stun fields, health, meter, position, velocity, facing, and runtime flags.
     - _Requirements: 6.2, 6.4, 6.5, 6.9, 7.7, 10.1, 10.3_
-  - [ ] 2.5 Define round and game state models
+  - [x] 2.5 Define round and game state models
     - Details: Implement `GameState`, `RoundStatus`, `RoundEndResult`, frame counter, seed, stage state, and last event list.
     - _Requirements: 3.4, 3.5, 6.9, 8.7, 8.8, 10.7_
-  - [ ] 2.6 Define combat events
+  - [x] 2.6 Define combat events
     - Details: Implement `HitEvent`, `BlockEvent`, `MeterEvent`, `MoveStartedEvent`, `RoundEndedEvent`, and `CpuDecisionEvent`.
     - _Requirements: 6.10, 10.4, 10.5, 11.3, 11.4, 12.2, 12.3_
 
