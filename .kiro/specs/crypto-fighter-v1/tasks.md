@@ -46,36 +46,36 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - Details: Implement `HitEvent`, `BlockEvent`, `MeterEvent`, `MoveStartedEvent`, `RoundEndedEvent`, and `CpuDecisionEvent`.
     - _Requirements: 6.10, 10.4, 10.5, 11.3, 11.4, 12.2, 12.3_
 
-- [ ] 3. Build data definitions for fighters, moves, and stage
-  - [ ] 3.1 Define fighter definition schema
+- [x] 3. Build data definitions for fighters, moves, and stage
+  - [x] 3.1 Define fighter definition schema
     - Details: Create `FighterDefinition` with health, meter, speed, jump, gravity, pushbox, hurtboxes, moves, animation keys, audio keys, and copy keys.
     - _Requirements: 7.1, 8.2, 16.4_
-  - [ ] 3.2 Define move definition schema
+  - [x] 3.2 Define move definition schema
     - Details: Create `MoveDefinition` with startup, active, recovery, damage, chip damage, hitstun, blockstun, hitstop, meter gain, meter cost, blockable flag, hitboxes, hurtboxes, and presentation keys.
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 7.2, 7.3, 7.4, 7.5, 7.6_
-  - [ ] 3.3 Define stage definition schema
+  - [x] 3.3 Define stage definition schema
     - Details: Create `StageDefinition` with world bounds, floor, camera config, background assets, foreground assets, audio key, and copy keys.
     - _Requirements: 3.3, 11.1, 11.2, 11.8_
-  - [ ] 3.4 Implement Sminem fighter definition
+  - [x] 3.4 Implement Sminem fighter definition
     - Details: Add `packages/content/src/fighters/sminem.ts` with V1 stats, parody archetype, pushbox, baseline hurtboxes, and move references.
     - _Requirements: 3.1, 7.1, 7.8, 7.9_
-  - [ ] 3.5 Implement Bogdanoff fighter definition
+  - [x] 3.5 Implement Bogdanoff fighter definition
     - Details: Add `packages/content/src/fighters/bogdanoff.ts` with CPU boss stats, parody archetype, pushbox, baseline hurtboxes, and move references.
     - _Requirements: 3.2, 8.1, 8.2, 8.7, 8.8_
-  - [ ] 3.6 Implement Sminem move definitions
+  - [x] 3.6 Implement Sminem move definitions
     - Details: Add `sminem_light`, `sminem_heavy`, `green_candle`, and `bull_run_barrage`.
     - _Requirements: 5.5, 5.6, 5.7, 5.8, 7.2, 7.3, 7.4, 7.5, 7.6_
-  - [ ] 3.7 Implement Bogdanoff move definitions
+  - [x] 3.7 Implement Bogdanoff move definitions
     - Details: Add `bogdanoff_backhand`, `phone_slam`, `red_candle`, and optional `activate_global_dump`.
     - _Requirements: 8.3, 8.4, 8.5, 8.10_
-  - [ ] 3.8 Implement V1 stage definition
+  - [x] 3.8 Implement V1 stage definition
     - Details: Add `marketControlRoom` stage content with world bounds, floor, camera behavior, and placeholder asset keys.
     - _Requirements: 3.3, 11.1, 11.2, 11.8_
-  - [ ] 3.9 Add content validation helpers
+  - [x] 3.9 Add content validation helpers
     - Details: Add functions that verify required fighters, moves, stage fields, copy keys, asset keys, and distribution hooks exist.
     - _Requirements: 13.4, 13.7, 17.1, 17.6, 17.7_
 
-- [ ] 4. Checkpoint: simulation and content skeleton
+- [x] 4. Checkpoint: simulation and content skeleton
   - Details: Run typecheck and content validation. Confirm the project can build the empty web app and import `packages/sim` and `packages/content`.
   - _Requirements: 2.3, 2.4, 16.4_
 

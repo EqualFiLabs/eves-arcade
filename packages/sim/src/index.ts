@@ -15,3 +15,6 @@ export * from './input/combat-input';
 export * from './state/fighter';
 export * from './state/game';
 export * from './combat/events';
+export * from './data/move-definition';
+export * from './data/fighter-definition';
+export * from './data/stage-definition';

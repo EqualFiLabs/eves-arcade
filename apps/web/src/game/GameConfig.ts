@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser';
+import { gameCopy } from '@rpr/content';
 import { BootScene } from './scenes/BootScene';
 
 /** Base game resolution. Phaser Scale.FIT letterboxes to preserve this aspect ratio. */
@@ -15,7 +16,8 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
   parent: 'game-container',
   backgroundColor: '#0a0a0f',
-  title: 'Rug Pull Rumble',
+  title: gameCopy.title,
+  url: 'https://github.com/anomalyco/opencode',
   banner: false,
   scale: {
     mode: Phaser.Scale.FIT,
