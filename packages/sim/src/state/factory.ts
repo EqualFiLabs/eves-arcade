@@ -32,6 +32,8 @@ export function createFighterState(
     velocity: { x: 0, y: 0 },
     facing,
     grounded: true,
+    airJumpsUsed: 0,
+    airJumpReady: false,
     currentState: 'idle',
     currentMove: null,
     inputBuffer: [],

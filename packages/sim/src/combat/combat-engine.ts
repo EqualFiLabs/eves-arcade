@@ -195,6 +195,7 @@ function snapshotFighter(f: GameState['player']): CombatDebugSnapshot['player'] 
     state: f.currentState,
     facing: f.facing,
     grounded: f.grounded,
+    airJumpsUsed: f.airJumpsUsed,
     position: { x: f.position.x, y: f.position.y },
     velocity: { x: f.velocity.x, y: f.velocity.y },
     health: f.health,

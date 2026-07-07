@@ -22,6 +22,7 @@ export interface FighterDebugSnapshot {
   state: FighterActionState;
   facing: FacingDirection;
   grounded: boolean;
+  airJumpsUsed: number;
   position: Vec2;
   velocity: Vec2;
   health: number;

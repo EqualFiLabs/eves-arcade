@@ -280,8 +280,8 @@ Responsibilities:
 - Advance fighter state machines.
 - Resolve input buffers.
 - Resolve moves.
-- Resolve movement and facing.
-- Resolve hitbox, hurtbox, and pushbox interactions.
+- Resolve movement and facing. Jump input is edge-detected so an air jump (up to `maxAirJumps`) requires a fresh re-press rather than the up key being held since the ground jump.
+- Resolve hitbox, hurtbox, and pushbox interactions. Pushbox separation is skipped when the two pushboxes are disjoint on the vertical axis, so an airborne fighter can pass over a grounded one to cross up and fight from the other side.
 - Apply health, meter, hitstun, blockstun, KO, and result state.
 - Emit events for rendering and audio.
 
@@ -485,6 +485,8 @@ export interface FighterDefinition {
   backWalkSpeed: number;
   jumpVelocity: number;
   gravity: number;
+  /** Max air jumps allowed after leaving the ground (0 = no air jump). */
+  maxAirJumps: number;
   pushbox: Box;
   defaultHurtboxes: FrameBoxSet;
   moves: FighterMoveMap;

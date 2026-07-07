@@ -146,6 +146,9 @@ export function validateContent(content: V1Content = getV1Content()): ContentVal
     const fp = `Fighter ${String(fighter.id)}`;
     if (fighter.maxHealth <= 0) errors.push(`${fp}: maxHealth must be > 0`);
     if (fighter.maxMeter < 0) errors.push(`${fp}: maxMeter must be >= 0`);
+    if (!Number.isInteger(fighter.maxAirJumps) || fighter.maxAirJumps < 0) {
+      errors.push(`${fp}: maxAirJumps must be a non-negative integer`);
+    }
     const slots: Array<['light' | 'heavy' | 'special' | 'super', MoveId | undefined]> = [
       ['light', fighter.moves.light],
       ['heavy', fighter.moves.heavy],

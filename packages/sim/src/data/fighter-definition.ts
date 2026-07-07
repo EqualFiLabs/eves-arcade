@@ -69,6 +69,8 @@ export interface FighterDefinition {
   jumpVelocity: number;
   /** Downward acceleration per step. */
   gravity: number;
+  /** Max air jumps allowed after leaving the ground (0 = no air jump). */
+  maxAirJumps: number;
   /** Body volume used for pushbox separation, in fighter-local coordinates. */
   pushbox: Box;
   defaultHurtboxes: FrameBoxSet;

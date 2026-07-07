@@ -17,6 +17,7 @@ export const sminemDefinition: FighterDefinition = {
   backWalkSpeed: 2.6,
   jumpVelocity: -15,
   gravity: 0.8,
+  maxAirJumps: 1,
   pushbox: { x: -30, y: -130, width: 60, height: 130 },
   defaultHurtboxes: {
     stand: [{ x: -24, y: -120, width: 48, height: 120 }],

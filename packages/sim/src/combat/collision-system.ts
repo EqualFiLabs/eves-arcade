@@ -32,6 +32,10 @@ function pushboxPositionRange(pushbox: Box, worldBounds: Box): PositionRange {
  * bounds. The overlap is split evenly when both fighters have room; if one is
  * against a wall (no room to yield) the other absorbs the remainder, so fighters
  * can never be pushed out of bounds or through each other.
+ *
+ * Separation is skipped when the pushboxes do not overlap vertically — an
+ * airborne fighter (e.g. mid-double-jump) can pass over a grounded one to
+ * cross up and fight from the other side.
  */
 export function resolvePushboxes(
   state: GameState,
@@ -42,6 +46,14 @@ export function resolvePushboxes(
   const pDef = definitions.get(p.definitionId);
   const cDef = definitions.get(c.definitionId);
   if (!pDef || !cDef) return;
+
+  // Vertical overlap test: pushboxes are local to each fighter's anchor (feet),
+  // so world top/bottom come from position.y + pushbox.y (y is negative-up).
+  const pTop = p.position.y + pDef.pushbox.y;
+  const pBottom = pTop + pDef.pushbox.height;
+  const cTop = c.position.y + cDef.pushbox.y;
+  const cBottom = cTop + cDef.pushbox.height;
+  if (pBottom <= cTop || cBottom <= pTop) return; // disjoint vertically: let them pass
 
   const wb = state.stage.worldBounds;
   const pRange = pushboxPositionRange(pDef.pushbox, wb);

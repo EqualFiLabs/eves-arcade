@@ -43,6 +43,11 @@ export function applyMovementInput(
   // Block intent is tracked even if the final state is something else.
   f.runtimeFlags.blocking = input.block && f.grounded;
 
+  // Edge-detect the jump input so an air jump requires a fresh re-press rather
+  // than the up key being held since the ground jump. Tracked every step
+  // (including during hitstun) so a held-down up never silently stocks a jump.
+  if (input.vertical !== -1) f.airJumpReady = true;
+
   if (!canControl(f)) return;
 
   // Jump (up input while grounded launches).
@@ -50,9 +55,17 @@ export function applyMovementInput(
     f.velocity.y = def.jumpVelocity;
     f.grounded = false;
     f.currentState = 'jump';
+    f.airJumpsUsed = 0;
+    f.airJumpReady = false;
   }
 
   if (!f.grounded) {
+    // Air jump: a fresh up press (edge) while still within the air-jump budget.
+    if (input.vertical === -1 && f.airJumpReady && f.airJumpsUsed < def.maxAirJumps) {
+      f.velocity.y = def.jumpVelocity;
+      f.airJumpsUsed += 1;
+      f.airJumpReady = false;
+    }
     // Air control: adjust horizontal velocity but keep the jump state.
     if (input.horizontal !== 0) {
       const forward = input.horizontal === facingSign(f.facing);
@@ -103,6 +116,7 @@ export function integratePhysics(
       f.position.y = stage.floorY;
       f.velocity.y = 0;
       f.grounded = true;
+      f.airJumpsUsed = 0;
       if (canControl(f) && f.currentState === 'jump') {
         f.currentState = 'idle';
       }

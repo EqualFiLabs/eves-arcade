@@ -75,6 +75,10 @@ export interface FighterState {
   facing: FacingDirection;
   /** True while the fighter's anchor is on the floor. */
   grounded: boolean;
+  /** Air jumps used since leaving the ground (resets on landing). */
+  airJumpsUsed: number;
+  /** Edge-detect latch: true once the jump input has been released since the last jump. */
+  airJumpReady: boolean;
   currentState: FighterActionState;
   currentMove: MoveRuntimeState | null;
   inputBuffer: BufferedInput[];

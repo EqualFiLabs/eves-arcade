@@ -22,6 +22,7 @@ export const bogdanoffDefinition: FighterDefinition = {
   backWalkSpeed: 2.2,
   jumpVelocity: -13,
   gravity: 0.8,
+  maxAirJumps: 1,
   pushbox: { x: -34, y: -144, width: 68, height: 144 },
   defaultHurtboxes: {
     stand: [{ x: -28, y: -132, width: 56, height: 132 }],
