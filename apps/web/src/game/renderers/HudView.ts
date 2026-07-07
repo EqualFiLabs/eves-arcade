@@ -1,115 +1,140 @@
 import * as Phaser from 'phaser';
 import type { FighterState, RoundStatus } from '@rpr/sim';
+import { gameCopy } from '@rpr/content';
 
 const BAR_W = 460;
 const BAR_H = 22;
 const METER_H = 8;
 
 /**
- * HudView (PLACEHOLDER) — top health and meter bars plus round status. Reads
- * only sim state (Property 10). Replaced by the textured HudView in Task 13.5.
+ * HudView — top health bars, player meter bar, and themed round / KO / win /
+ * loss / restart text (Req 10.1–10.9). Reads only sim state (Property 10) and
+ * the data-driven copy (Req 16.4).
  *
- * Health drains inward (player from right, CPU from left) the way fighting-game
- * bars conventionally behave.
+ * Health drains inward (player right→left, CPU left→right). Round-end messages
+ * are chosen from the themed copy arrays so the outcome is obvious without text
+ * parsing alone (Req 10.7/10.9).
  */
 export class HudView {
   private readonly scene: Phaser.Scene;
   private readonly hpBg: Phaser.GameObjects.Graphics;
   private readonly hpFill: Phaser.GameObjects.Graphics;
   private readonly meterFill: Phaser.GameObjects.Graphics;
-  private readonly statusText: Phaser.GameObjects.Text;
-  private readonly hint: Phaser.GameObjects.Text;
+  private readonly names: Phaser.GameObjects.Text;
+  private readonly centerText: Phaser.GameObjects.Text;
+  private readonly restartHint: Phaser.GameObjects.Text;
+  private centerShown = false;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    const { width } = scene.scale;
-    const topY = 24;
+    const { width, height } = scene.scale;
+    const topY = 22;
     const margin = 40;
 
-    this.hpBg = scene.add.graphics().setDepth(100);
-    this.hpFill = scene.add.graphics().setDepth(101);
-    this.meterFill = scene.add.graphics().setDepth(101);
+    this.hpBg = scene.add.graphics();
+    this.hpFill = scene.add.graphics();
+    this.meterFill = scene.add.graphics();
 
-    this.statusText = scene.add
-      .text(width / 2, topY + 8, '', {
+    this.names = scene.add
+      .text(width / 2, topY + 6, 'SMINEM                      BOGDANOFF', {
         fontFamily: 'monospace',
-        fontSize: '22px',
-        color: '#ffd866',
+        fontSize: '14px',
+        color: '#cfd6dd',
       })
-      .setOrigin(0.5, 0)
-      .setDepth(102);
+      .setOrigin(0.5, 0);
 
-    this.hint = scene.add
-      .text(width / 2, scene.scale.height - 16, 'Enter: start/restart   |   Esc: menu   |   M: mute', {
+    this.centerText = scene.add
+      .text(width / 2, height * 0.4, '', {
+        fontFamily: 'monospace',
+        fontSize: '44px',
+        color: '#ffd866',
+        stroke: '#0a0a0f',
+        strokeThickness: 6,
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setVisible(false);
+
+    this.restartHint = scene.add
+      .text(width / 2, height - 18, `${gameCopy.restartHint}   |   Esc: menu   |   ${gameCopy.muteHint}`, {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#6a7385',
       })
-      .setOrigin(0.5, 1)
-      .setDepth(102);
+      .setOrigin(0.5, 1);
 
-    // Static frames drawn once.
+    // Static bar frames drawn once.
     this.hpBg.lineStyle(2, 0x3a3a4a, 1);
-    this.hpBg.fillStyle(0x101018, 0.8);
+    this.hpBg.fillStyle(0x101018, 0.85);
     this.hpBg.fillRect(margin, topY, BAR_W, BAR_H);
     this.hpBg.strokeRect(margin, topY, BAR_W, BAR_H);
     this.hpBg.fillRect(width - margin - BAR_W, topY, BAR_W, BAR_H);
     this.hpBg.strokeRect(width - margin - BAR_W, topY, BAR_W, BAR_H);
-
-    void this.hint;
   }
 
   sync(player: FighterState, cpu: FighterState, status: RoundStatus): void {
     const { width } = this.scene.scale;
-    const topY = 24;
+    const topY = 22;
     const margin = 40;
     const meterY = topY + BAR_H + 4;
 
     this.hpFill.clear();
     this.meterFill.clear();
 
-    // Player health (drains right→left).
-    const pHpFrac = Math.max(0, player.health) / player.maxHealth;
+    const pHp = Math.max(0, player.health) / player.maxHealth;
     this.hpFill.fillStyle(0x7cf6a4, 1);
-    this.hpFill.fillRect(margin, topY, BAR_W * pHpFrac, BAR_H);
+    this.hpFill.fillRect(margin, topY, BAR_W * pHp, BAR_H);
 
-    // CPU health (drains left→right).
-    const cHpFrac = Math.max(0, cpu.health) / cpu.maxHealth;
+    const cHp = Math.max(0, cpu.health) / cpu.maxHealth;
     this.hpFill.fillStyle(0xff6b6b, 1);
-    this.hpFill.fillRect(width - margin - BAR_W * cHpFrac, topY, BAR_W * cHpFrac, BAR_H);
+    this.hpFill.fillRect(width - margin - BAR_W * cHp, topY, BAR_W * cHp, BAR_H);
 
-    // Meter bars.
-    const pMeterFrac = Math.max(0, Math.min(1, player.meter / player.maxMeter));
+    const pMeter = Math.max(0, Math.min(1, player.meter / player.maxMeter));
     this.meterFill.fillStyle(0xffd866, 1);
-    this.meterFill.fillRect(margin, meterY, BAR_W * pMeterFrac, METER_H);
+    this.meterFill.fillRect(margin, meterY, BAR_W * pMeter, METER_H);
 
-    const cMeterFrac = Math.max(0, Math.min(1, cpu.meter / cpu.maxMeter));
+    const cMeter = Math.max(0, Math.min(1, cpu.meter / cpu.maxMeter));
     this.meterFill.fillStyle(0xffd866, 1);
-    this.meterFill.fillRect(width - margin - BAR_W * cMeterFrac, meterY, BAR_W * cMeterFrac, METER_H);
+    this.meterFill.fillRect(width - margin - BAR_W * cMeter, meterY, BAR_W * cMeter, METER_H);
 
-    this.statusText.setText(this.statusTextFor(status));
+    this.updateCenterText(status, player, cpu);
   }
 
-  private statusTextFor(status: RoundStatus): string {
-    switch (status) {
-      case 'player_win':
-        return 'KO — YOU WIN!   (Enter: rematch   Esc: menu)';
-      case 'cpu_win':
-        return 'KO — REKT   (Enter: rematch   Esc: menu)';
-      case 'paused':
-        return 'PAUSED';
-      case 'intro':
-        return 'GET READY';
-      default:
-        return '';
+  private updateCenterText(status: RoundStatus, player: FighterState, cpu: FighterState): void {
+    if (status === 'active') {
+      if (this.centerShown) {
+        this.centerText.setVisible(false);
+        this.centerShown = false;
+      }
+      return;
     }
+    const line =
+      status === 'player_win'
+        ? pick(gameCopy.playerWin)
+        : status === 'cpu_win'
+          ? pick(gameCopy.playerLoss)
+          : status === 'intro'
+            ? pick(gameCopy.roundStart)
+            : '';
+    const koSuffix = status === 'player_win' || status === 'cpu_win' ? `\n${pick(gameCopy.ko)}` : '';
+    this.centerText.setText(line + koSuffix).setVisible(true);
+    this.centerShown = true;
+    void player;
+    void cpu;
+  }
+
+  get objects(): Phaser.GameObjects.GameObject[] {
+    return [this.hpBg, this.hpFill, this.meterFill, this.names, this.centerText, this.restartHint];
   }
 
   destroy(): void {
     this.hpBg.destroy();
     this.hpFill.destroy();
     this.meterFill.destroy();
-    this.statusText.destroy();
-    this.hint.destroy();
+    this.names.destroy();
+    this.centerText.destroy();
+    this.restartHint.destroy();
   }
 }
+
+const pick = (arr: readonly string[]): string => arr[Math.floor(Math.random() * arr.length)] ?? '';

@@ -12,6 +12,7 @@ import {
   bogdanoffCpuProfile,
   bogdanoffDefinition,
   createV1FightState,
+  marketControlRoom,
   sminemDefinition,
   v1Moves,
 } from '@rpr/content';
@@ -22,19 +23,23 @@ import type { InputSource } from '../input/InputSource';
 import { FighterRenderer } from '../renderers/FighterRenderer';
 import { HudView } from '../renderers/HudView';
 import { StageRenderer } from '../renderers/StageRenderer';
+import { FightCamera } from '../renderers/FightCamera';
 
 /**
  * FightScene — owns the Phaser runtime for the fight (design: FightScene).
  *
  * Instantiates the deterministic {@link CombatEngine}, the {@link BogdanoffBossBrain}
- * CPU, the {@link InputMapper}, placeholder renderers, and the HUD, then advances
- * the simulation at a fixed 60 Hz step driven by a delta accumulator (Req 15.3).
+ * CPU, the {@link InputMapper}, the stage/fighter renderers, the HUD, and a
+ * dual-target {@link FightCamera}, then advances the simulation at a fixed 60 Hz
+ * step driven by a delta accumulator (Req 15.3).
  *
- * Presentation only ever READS sim state (Property 10); it never mutates combat
- * state. CPU legality is enforced by the engine on every step (Property 9).
+ * Two cameras keep presentation correct: the main camera frames the world
+ * (scrolls + zooms), while a fixed HUD camera renders the HUD without
+ * distortion. Presentation only ever READS sim state (Property 10); it never
+ * mutates combat state. CPU legality is enforced by the engine (Property 9).
  *
- * On KO the scene shows an in-scene result overlay and offers rematch/menu until
- * the dedicated ResultScene lands in Task 18.
+ * On KO the scene shows an in-scene result overlay and offers rematch/menu
+ * until the dedicated ResultScene lands in Task 18.
  */
 export class FightScene extends Phaser.Scene {
   private engine!: CombatEngine;
@@ -45,6 +50,8 @@ export class FightScene extends Phaser.Scene {
   private playerRenderer!: FighterRenderer;
   private cpuRenderer!: FighterRenderer;
   private hud!: HudView;
+  private fightCam!: FightCamera;
+  private hudCam!: Phaser.Cameras.Scene2D.Camera;
 
   private accumulator = 0;
   private settled = false;
@@ -64,7 +71,6 @@ export class FightScene extends Phaser.Scene {
     this.brain = new BogdanoffBossBrain();
     const keyboard = this.input.keyboard;
     if (!keyboard) throw new Error('FightScene: keyboard input plugin unavailable');
-    // Keyboard is always wired; gamepad is optional (Req 5.10/5.11).
     const sources: InputSource[] = [];
     this.keyboardSource = new KeyboardInputSource(keyboard);
     sources.push(this.keyboardSource);
@@ -72,16 +78,35 @@ export class FightScene extends Phaser.Scene {
     this.inputMapper = new InputMapper(sources);
     this.muted = !!this.game.registry.get('muted');
 
-    this.stage = new StageRenderer(this, this.engine.state.stage);
-    const t = this.stage.screenTransform;
-    this.playerRenderer = new FighterRenderer(this, t, sminemDefinition.pushbox, true);
-    this.cpuRenderer = new FighterRenderer(this, t, bogdanoffDefinition.pushbox, false);
+    // --- Renderers (world space) + HUD (fixed). ---
+    this.stage = new StageRenderer(this, this.engine.state.stage, marketControlRoom);
+    this.playerRenderer = new FighterRenderer(this, sminemDefinition, true, marketControlRoom.floorY);
+    this.cpuRenderer = new FighterRenderer(this, bogdanoffDefinition, false, marketControlRoom.floorY);
     this.hud = new HudView(this);
+
+    // --- Dual-target framing camera + a separate fixed HUD camera. ---
+    const main = this.cameras.main;
+    const cam = marketControlRoom.camera;
+    this.fightCam = new FightCamera(
+      main,
+      this.engine.state.stage.worldBounds,
+      this.scale.height,
+      this.scale.width,
+      cam.minZoom,
+      cam.maxZoom,
+      marketControlRoom.floorY,
+    );
+    this.fightCam.snap(this.engine.state.player.position.x, this.engine.state.cpu.position.x);
+
+    this.hudCam = this.cameras.add(0, 0, this.scale.width, this.scale.height, false, 'hud');
+    this.hudCam.setScroll(0, 0).setZoom(1);
+    // Each camera renders only its own layer.
+    main.ignore(this.hud.objects);
+    this.hudCam.ignore([...this.stage.objects, ...this.playerRenderer.objects, ...this.cpuRenderer.objects]);
 
     this.accumulator = 0;
     this.settled = false;
 
-    // Rematch / menu / mute handling.
     this.input.keyboard?.on('keydown-ENTER', () => {
       if (this.settled) this.scene.restart();
     });
@@ -91,45 +116,37 @@ export class FightScene extends Phaser.Scene {
       this.game.registry.set('muted', this.muted);
     });
 
-    // Expose for e2e/debug.
     (window as unknown as { __engine?: unknown }).__engine = this.engine;
   }
 
   override update(_time: number, delta: number): void {
-    if (this.settled) {
-      this.syncPresentation();
-      return;
-    }
+    if (!this.settled) {
+      // Accumulate render delta and cap after tab stalls to avoid a spiral of
+      // death (Req 15.4); at most MAX_STEPS_PER_FRAME fixed steps per frame.
+      this.accumulator += delta;
+      const cap = MAX_STEPS_PER_FRAME * SIM_STEP_MS;
+      if (this.accumulator > cap) this.accumulator = cap;
 
-    // Accumulate render delta and cap after tab stalls to avoid a spiral of
-    // death (Req 15.4). The cap keeps at most MAX_STEPS_PER_FRAME fixed steps
-    // per frame, so combat state is never corrupted by a huge catch-up burst.
-    this.accumulator += delta;
-    const cap = MAX_STEPS_PER_FRAME * SIM_STEP_MS;
-    if (this.accumulator > cap) this.accumulator = cap;
-
-    while (this.accumulator >= SIM_STEP_MS) {
-      const playerInput: CombatInput = this.engine.state.status === 'active' ? this.inputMapper.poll() : NEUTRAL_INPUT;
-      const cpuInput = this.brain.decide(this.engine.state, bogdanoffCpuProfile);
-      this.engine.step(playerInput, cpuInput);
-      this.accumulator -= SIM_STEP_MS;
-
-      if (this.engine.state.status !== 'active') {
-        this.settled = true;
-        break;
+      while (this.accumulator >= SIM_STEP_MS) {
+        const playerInput: CombatInput =
+          this.engine.state.status === 'active' ? this.inputMapper.poll() : NEUTRAL_INPUT;
+        const cpuInput = this.brain.decide(this.engine.state, bogdanoffCpuProfile);
+        this.engine.step(playerInput, cpuInput);
+        this.accumulator -= SIM_STEP_MS;
+        if (this.engine.state.status !== 'active') {
+          this.settled = true;
+          break;
+        }
       }
     }
 
-    this.syncPresentation();
-  }
-
-  /** Mirrors current sim state into renderers + HUD (Property 10). */
-  private syncPresentation(): void {
+    // Presentation follows simulation (Property 10).
     const s = this.engine.state;
     this.stage.sync(s.stage);
     this.playerRenderer.sync(s.player);
     this.cpuRenderer.sync(s.cpu);
     this.hud.sync(s.player, s.cpu, s.status);
+    this.fightCam.update(s.player.position.x, s.cpu.position.x, delta);
   }
 
   shutdown(): void {

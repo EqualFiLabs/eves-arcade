@@ -50,7 +50,8 @@ test('scene flow reaches the menu and the fight steps the simulation', async ({ 
   await page.keyboard.press('Enter');
   await expect.poll(() => engineFrame(page)).toBeGreaterThan(0);
 
-  // After a beat, the fixed-step loop has advanced many frames (Req 15.3).
-  await page.waitForTimeout(500);
-  expect(await engineFrame(page)).toBeGreaterThan(10);
+  // The fixed-step loop keeps advancing frames (Req 15.3). Headless software-GL
+  // renders slower than a real GPU, so poll over a generous window rather than
+  // asserting after a fixed delay.
+  await expect.poll(async () => engineFrame(page), { timeout: 15_000 }).toBeGreaterThan(20);
 });

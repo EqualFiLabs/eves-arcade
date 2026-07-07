@@ -219,23 +219,23 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
   - Details: Run the app locally. Confirm menu starts the fight, Sminem and Bogdanoff spawn, keyboard input reaches the simulation, and CPU inputs are generated.
   - _Requirements: 1.1, 1.6, 3.1, 3.2, 5.10, 8.1_
 
-- [ ] 13. Implement placeholder visual rendering
-  - [ ] 13.1 Implement `StageRenderer`
+- [x] 13. Implement placeholder visual rendering
+  - [x] 13.1 Implement `StageRenderer`
     - Details: Render the V1 stage with placeholder or initial background assets.
     - _Requirements: 3.3, 11.1, 11.8_
-  - [ ] 13.2 Implement `FighterRenderer`
+  - [x] 13.2 Implement `FighterRenderer`
     - Details: Render Sminem and Bogdanoff using placeholder shapes or sprites tied to `FighterState`.
     - _Requirements: 7.1, 8.2, 6.10_
-  - [ ] 13.3 Implement fighter facing and state visuals
+  - [x] 13.3 Implement fighter facing and state visuals
     - Details: Flip fighter presentation based on facing and show idle, walk, crouch, jump, attack, block, hitstun, blockstun, and KO states.
     - _Requirements: 6.7, 6.8, 7.1, 8.2_
-  - [ ] 13.4 Implement camera behavior
+  - [x] 13.4 Implement camera behavior
     - Details: Keep both fighters visible during normal play using the stage camera config.
     - _Requirements: 11.2_
-  - [ ] 13.5 Implement `HudView`
+  - [x] 13.5 Implement `HudView`
     - Details: Render Sminem health, Bogdanoff health, Sminem meter, themed round text, KO text, win or loss text, and restart hint.
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 10.6, 10.7, 10.8, 10.9_
-  - [ ] 13.6 Add fight flow e2e coverage
+  - [x] 13.6 Add fight flow e2e coverage
     - Details: Verify fighters and HUD appear, inputs move the player, CPU acts, and KO routes to result.
     - _Requirements: 3.4, 3.5, 5.10, 8.1, 10.1, 10.2, 10.7_
 
