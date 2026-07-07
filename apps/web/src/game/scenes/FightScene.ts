@@ -1,6 +1,9 @@
 import * as Phaser from 'phaser';
 import {
+  type CombatEvent,
   type CombatInput,
+  type MoveCategory,
+  type MoveId,
   BogdanoffBossBrain,
   CombatEngine,
   MAX_STEPS_PER_FRAME,
@@ -24,6 +27,7 @@ import { FighterRenderer } from '../renderers/FighterRenderer';
 import { HudView } from '../renderers/HudView';
 import { StageRenderer } from '../renderers/StageRenderer';
 import { FightCamera } from '../renderers/FightCamera';
+import { EffectsRenderer } from '../renderers/EffectsRenderer';
 
 /**
  * FightScene — owns the Phaser runtime for the fight (design: FightScene).
@@ -50,6 +54,7 @@ export class FightScene extends Phaser.Scene {
   private playerRenderer!: FighterRenderer;
   private cpuRenderer!: FighterRenderer;
   private hud!: HudView;
+  private effects!: EffectsRenderer;
   private fightCam!: FightCamera;
   private hudCam!: Phaser.Cameras.Scene2D.Camera;
 
@@ -84,6 +89,10 @@ export class FightScene extends Phaser.Scene {
     this.cpuRenderer = new FighterRenderer(this, bogdanoffDefinition, false, marketControlRoom.floorY);
     this.hud = new HudView(this);
 
+    // --- Combat feedback (particles + screen flash) driven by CombatEvents. ---
+    const moveCategoryOf = (id: MoveId): MoveCategory | undefined => v1Moves.find((m) => m.id === id)?.category;
+    this.effects = new EffectsRenderer(this, this.cameras.main, moveCategoryOf);
+
     // --- Dual-target framing camera + a separate fixed HUD camera. ---
     const main = this.cameras.main;
     const cam = marketControlRoom.camera;
@@ -100,9 +109,16 @@ export class FightScene extends Phaser.Scene {
 
     this.hudCam = this.cameras.add(0, 0, this.scale.width, this.scale.height, false, 'hud');
     this.hudCam.setScroll(0, 0).setZoom(1);
-    // Each camera renders only its own layer.
+    // Each camera renders only its own layer. The HUD camera also renders the
+    // effects flash overlay (screen-space); world-space sparks stay on main.
     main.ignore(this.hud.objects);
-    this.hudCam.ignore([...this.stage.objects, ...this.playerRenderer.objects, ...this.cpuRenderer.objects]);
+    this.hudCam.ignore([
+      ...this.stage.objects,
+      ...this.playerRenderer.objects,
+      ...this.cpuRenderer.objects,
+      ...this.effects.worldObjects,
+    ]);
+    main.ignore(this.effects.screenObjects);
 
     this.accumulator = 0;
     this.settled = false;
@@ -117,6 +133,7 @@ export class FightScene extends Phaser.Scene {
     });
 
     (window as unknown as { __engine?: unknown }).__engine = this.engine;
+    (window as unknown as { __effects?: unknown }).__effects = this.effects;
   }
 
   override update(_time: number, delta: number): void {
@@ -127,17 +144,22 @@ export class FightScene extends Phaser.Scene {
       const cap = MAX_STEPS_PER_FRAME * SIM_STEP_MS;
       if (this.accumulator > cap) this.accumulator = cap;
 
+      // Collect events from every fixed step this frame so presentation
+      // feedback never drops a hit/block/special/KO (Property 10).
+      const frameEvents: CombatEvent[] = [];
       while (this.accumulator >= SIM_STEP_MS) {
         const playerInput: CombatInput =
           this.engine.state.status === 'active' ? this.inputMapper.poll() : NEUTRAL_INPUT;
         const cpuInput = this.brain.decide(this.engine.state, bogdanoffCpuProfile);
-        this.engine.step(playerInput, cpuInput);
+        const step = this.engine.step(playerInput, cpuInput);
+        frameEvents.push(...step.events);
         this.accumulator -= SIM_STEP_MS;
         if (this.engine.state.status !== 'active') {
           this.settled = true;
           break;
         }
       }
+      this.effects.consumeEvents(frameEvents, this.engine.state.player, this.engine.state.cpu);
     }
 
     // Presentation follows simulation (Property 10).
@@ -156,6 +178,7 @@ export class FightScene extends Phaser.Scene {
     this.playerRenderer?.destroy();
     this.cpuRenderer?.destroy();
     this.hud?.destroy();
+    this.effects?.destroy();
   }
 }
 

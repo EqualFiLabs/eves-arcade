@@ -37,6 +37,20 @@ async function engineState(page: import('@playwright/test').Page): Promise<{
   });
 }
 
+/** Reads EffectsRenderer telemetry exposed on window (counts of feedback played). */
+async function effectCounts(page: import('@playwright/test').Page): Promise<{
+  hit: number;
+  block: number;
+  special: number;
+  super: number;
+  ko: number;
+}> {
+  return page.evaluate(() => {
+    const c = (window as unknown as { __effects?: { counts?: Record<string, number> } }).__effects?.counts;
+    return { hit: c?.hit ?? 0, block: c?.block ?? 0, special: c?.special ?? 0, super: c?.super ?? 0, ko: c?.ko ?? 0 };
+  });
+}
+
 test('fighters and HUD render, input moves the player, CPU acts, KO surfaces result', async ({ page }) => {
   await page.goto('/');
   await page.locator('canvas').waitFor();
@@ -67,4 +81,11 @@ test('fighters and HUD render, input moves the player, CPU acts, KO surfaces res
   expect(['player_win', 'cpu_win']).toContain(end.status);
   // The loser is at zero health.
   expect(Math.min(end.ph, end.ch)).toBe(0);
+
+  // Combat feedback fired during the fight: at least one hit spark and the KO
+  // presentation played (Req 11.3/11.6). Presentation is driven purely by
+  // CombatEvents emitted from the sim (Property 10).
+  const fx = await effectCounts(page);
+  expect(fx.hit).toBeGreaterThan(0);
+  expect(fx.ko).toBe(1);
 });

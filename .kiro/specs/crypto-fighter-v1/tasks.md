@@ -239,23 +239,23 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - Details: Verify fighters and HUD appear, inputs move the player, CPU acts, and KO routes to result.
     - _Requirements: 3.4, 3.5, 5.10, 8.1, 10.1, 10.2, 10.7_
 
-- [ ] 14. Implement effects and combat feedback
-  - [ ] 14.1 Implement hit feedback
+- [x] 14. Implement effects and combat feedback
+  - [x] 14.1 Implement hit feedback
     - Details: Spawn hit sparks, hit freeze, or screen shake when `HitEvent` is emitted.
     - _Requirements: 11.3, 6.10_
-  - [ ] 14.2 Implement block feedback
+  - [x] 14.2 Implement block feedback
     - Details: Spawn distinct block visual feedback when `BlockEvent` is emitted.
     - _Requirements: 11.4_
-  - [ ] 14.3 Implement special move feedback
+  - [x] 14.3 Implement special move feedback
     - Details: Show stronger visual effects for `green_candle` and `red_candle`.
     - _Requirements: 7.4, 8.5, 11.5_
-  - [ ] 14.4 Implement super move feedback
+  - [x] 14.4 Implement super move feedback
     - Details: Show stronger visual and timing emphasis for `bull_run_barrage`.
     - _Requirements: 5.8, 7.5, 7.6, 11.5_
-  - [ ] 14.5 Implement KO presentation
+  - [x] 14.5 Implement KO presentation
     - Details: Show a distinct KO effect, fighter KO state, and result transition.
     - _Requirements: 6.9, 8.7, 8.8, 11.6_
-  - [ ] 14.6 Tune visual readability
+  - [x] 14.6 Tune visual readability
     - Details: Ensure effects do not hide health, fighter state, hitboxes during debug, or essential action timing for too long.
     - _Requirements: 11.7, 11.8, 15.1_
 
