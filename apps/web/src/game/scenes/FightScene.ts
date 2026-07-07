@@ -16,6 +16,9 @@ import {
   v1Moves,
 } from '@rpr/content';
 import { InputMapper } from '../input/InputMapper';
+import { KeyboardInputSource } from '../input/KeyboardInputSource';
+import { GamepadInputSource } from '../input/GamepadInputSource';
+import type { InputSource } from '../input/InputSource';
 import { FighterRenderer } from '../renderers/FighterRenderer';
 import { HudView } from '../renderers/HudView';
 import { StageRenderer } from '../renderers/StageRenderer';
@@ -37,6 +40,7 @@ export class FightScene extends Phaser.Scene {
   private engine!: CombatEngine;
   private brain!: BogdanoffBossBrain;
   private inputMapper!: InputMapper;
+  private keyboardSource: KeyboardInputSource | null = null;
   private stage!: StageRenderer;
   private playerRenderer!: FighterRenderer;
   private cpuRenderer!: FighterRenderer;
@@ -60,7 +64,12 @@ export class FightScene extends Phaser.Scene {
     this.brain = new BogdanoffBossBrain();
     const keyboard = this.input.keyboard;
     if (!keyboard) throw new Error('FightScene: keyboard input plugin unavailable');
-    this.inputMapper = new InputMapper(keyboard);
+    // Keyboard is always wired; gamepad is optional (Req 5.10/5.11).
+    const sources: InputSource[] = [];
+    this.keyboardSource = new KeyboardInputSource(keyboard);
+    sources.push(this.keyboardSource);
+    if (this.input.gamepad) sources.push(new GamepadInputSource(this.input.gamepad));
+    this.inputMapper = new InputMapper(sources);
     this.muted = !!this.game.registry.get('muted');
 
     this.stage = new StageRenderer(this, this.engine.state.stage);
@@ -124,6 +133,8 @@ export class FightScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    this.keyboardSource?.destroy();
+    this.keyboardSource = null;
     this.stage?.destroy();
     this.playerRenderer?.destroy();
     this.cpuRenderer?.destroy();

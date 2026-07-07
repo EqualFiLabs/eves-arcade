@@ -201,21 +201,21 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - Details: Advance the simulation with fixed-size steps and cap accumulated time after frame stalls.
     - _Requirements: 15.3, 15.4, 15.7_
 
-- [ ] 11. Implement browser input
-  - [ ] 11.1 Implement `KeyboardInputSource`
+- [x] 11. Implement browser input
+  - [x] 11.1 Implement `KeyboardInputSource`
     - Details: Read default keyboard bindings for movement, block, light, heavy, special, super, start, and mute.
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8, 5.10_
-  - [ ] 11.2 Implement `InputMapper`
+  - [x] 11.2 Implement `InputMapper`
     - Details: Convert raw input into normalized `CombatInput` for the simulation.
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7, 5.8_
-  - [ ] 11.3 Add optional `GamepadInputSource`
+  - [x] 11.3 Add optional `GamepadInputSource`
     - Details: Add gamepad support only as optional input. Keep keyboard fully supported.
     - _Requirements: 5.10, 5.11_
-  - [ ] 11.4 Add input smoke tests
+  - [x] 11.4 Add input smoke tests
     - Details: Validate that the fight accepts keyboard movement and attacks in browser e2e tests.
     - _Requirements: 5.1, 5.5, 5.6, 5.10_
 
-- [ ] 12. Checkpoint: browser fight starts with placeholder rendering
+- [x] 12. Checkpoint: browser fight starts with placeholder rendering
   - Details: Run the app locally. Confirm menu starts the fight, Sminem and Bogdanoff spawn, keyboard input reaches the simulation, and CPU inputs are generated.
   - _Requirements: 1.1, 1.6, 3.1, 3.2, 5.10, 8.1_
 

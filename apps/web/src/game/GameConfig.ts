@@ -34,5 +34,8 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     width: GAME_WIDTH,
     height: GAME_HEIGHT,
   },
+  input: {
+    gamepad: true,
+  },
   scene: [BootScene, UnsupportedBrowserScene, PreloadScene, MenuScene, FightScene],
 };
