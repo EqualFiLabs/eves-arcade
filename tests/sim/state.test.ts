@@ -29,7 +29,7 @@ function makeFighter(side: 'player' | 'cpu'): FighterState {
     blockstunFramesRemaining: 0,
     hitstopFramesRemaining: 0,
     hasLost: false,
-    runtimeFlags: { blocking: false },
+    runtimeFlags: { blocking: false, blockHeight: 'high' },
   };
 }
 

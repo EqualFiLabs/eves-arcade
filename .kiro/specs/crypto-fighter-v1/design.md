@@ -504,6 +504,8 @@ export interface MoveDefinition {
   displayName: string;
   inputCommand: MoveInputCommand;
   category: MoveCategory;
+  /** Which block stance can guard this move (governs blocking only). */
+  attackHeight: AttackHeight;
   startupFrames: number;
   activeFrames: number;
   recoveryFrames: number;
@@ -524,7 +526,16 @@ export interface MoveDefinition {
 }
 
 export type MoveCategory = "light" | "heavy" | "special" | "super" | "boss";
+
+/** Attack height: high blocked only by high guard, low only by low guard, mid by either. */
+export type AttackHeight = "high" | "mid" | "low";
 ```
+
+### Blocking
+
+- Holding `block` grounded enters the block stance. While blocking, `up` (or neutral) selects a **high** guard and `down` selects a **low** guard; `block+up` does not jump.
+- A move's `attackHeight` decides which guard can stop it: high beats high, low beats low, mid is blocked by either. A height mismatch is a clean hit. Whether a hit connects at all is still decided by hitbox/hurtbox geometry; height only governs blocking.
+- V1 height assignments: lights = high, heavies = low, specials/supers = mid. The CPU mixes guard heights (visible in the renderer) so the player must read the stance to pick the mismatching attack.
 
 ### Box Types
 

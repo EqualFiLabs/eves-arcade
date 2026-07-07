@@ -12,6 +12,14 @@ import type { InputDirection } from '../input/combat-input';
 /** Functional category of a move (drives scaling, cancels, and CPU weighting). */
 export type MoveCategory = 'light' | 'heavy' | 'special' | 'super' | 'boss';
 
+/**
+ * Attack height — determines which block stance can guard the move.
+ * `high` is blocked only by a high block, `low` only by a low block, `mid` by
+ * either. The height label governs blocking only; whether a hit connects at all
+ * is still decided by hitbox/hurtbox geometry.
+ */
+export type AttackHeight = 'high' | 'mid' | 'low';
+
 /** Button that triggers a move, matching the {@link import('../input/combat-input').CombatInput} flags. */
 export type MoveInputButton = 'light' | 'heavy' | 'special' | 'super';
 
@@ -50,6 +58,8 @@ export interface MoveDefinition {
   displayName: string;
   inputCommand: MoveInputCommand;
   category: MoveCategory;
+  /** Which block stance can guard this move (governs blocking only). */
+  attackHeight: AttackHeight;
   /** Frames before the first active frame. */
   startupFrames: number;
   /** Frames hitboxes are live. */

@@ -5,7 +5,7 @@
  * (Reqs 6.1, 6.2, 6.3, 6.5). Blockable attacks met by a valid block stance
  * produce a block result with chip damage + blockstun instead of a clean hit.
  */
-import type { MoveDefinition } from '../data/move-definition';
+import type { AttackHeight, MoveDefinition } from '../data/move-definition';
 import type { MoveId } from '../primitives';
 import type { FighterState } from '../state/fighter';
 import type { GameState } from '../state/game';
@@ -28,8 +28,16 @@ function fighterById(state: GameState, id: GameState['player']['id']): FighterSt
   return undefined;
 }
 
-/** A defender blocks when holding a valid grounded block stance facing the attacker. */
-const isBlocking = (defender: FighterState): boolean => defender.currentState === 'block';
+/**
+ * A defender blocks when holding a valid grounded block stance facing the
+ * attacker AND guarding the correct height for the incoming attack: high blocks
+ * beat high, low blocks beat low, mid is blocked by either.
+ */
+function isBlocking(defender: FighterState, attackHeight: AttackHeight): boolean {
+  if (defender.currentState !== 'block') return false;
+  if (attackHeight === 'mid') return true;
+  return defender.runtimeFlags.blockHeight === attackHeight;
+}
 
 function applyHitstop(a: FighterState, b: FighterState, frames: number): void {
   a.hitstopFramesRemaining = Math.max(a.hitstopFramesRemaining, frames);
@@ -56,7 +64,7 @@ export function resolveHitContact(
     attacker.currentMove.hitTargets.push(defender.id);
   }
 
-  const blocked = moveDef.blockable && isBlocking(defender);
+  const blocked = moveDef.blockable && isBlocking(defender, moveDef.attackHeight);
 
   if (blocked) {
     defender.health = clamp(defender.health - moveDef.chipDamage, 0, defender.maxHealth);

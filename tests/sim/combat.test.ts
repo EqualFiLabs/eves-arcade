@@ -10,7 +10,8 @@ import {
 const LIGHT: CombatInput = { ...NEUTRAL_INPUT, light: true };
 const HEAVY: CombatInput = { ...NEUTRAL_INPUT, heavy: true };
 const SPECIAL: CombatInput = { ...NEUTRAL_INPUT, special: true };
-const BLOCK: CombatInput = { ...NEUTRAL_INPUT, block: true };
+const BLOCK_HIGH: CombatInput = { ...NEUTRAL_INPUT, block: true };
+const BLOCK_LOW: CombatInput = { ...NEUTRAL_INPUT, block: true, vertical: 1 };
 const NEUTRAL: CombatInput = NEUTRAL_INPUT;
 
 function makeEngine(): CombatEngine {
@@ -121,12 +122,12 @@ describe('one-hit-per-move (6.6)', () => {
   });
 });
 
-describe('block detection (6.4)', () => {
-  it('a blockable attack into a block stance deals chip damage and blockstun, not a clean hit', () => {
+describe('block detection (6.4) + high/low guards', () => {
+  it('a matching-height guard blocks: low heavy into a low guard deals chip + blockstun', () => {
     const e = makeEngine();
     placeAdjacent(e);
     const maxHealth = e.state.cpu.health;
-    const events = runSteps(e, HEAVY, BLOCK, 16); // sminem_heavy startup=11, chip=1
+    const events = runSteps(e, HEAVY, BLOCK_LOW, 16); // sminem_heavy is low
     const block = findBlock(events);
     const hit = findHit(events);
     expect(block).toBeTruthy();
@@ -134,7 +135,53 @@ describe('block detection (6.4)', () => {
     expect(block!.chipDamage).toBe(1);
     expect(e.state.cpu.health).toBe(maxHealth - 1); // chip only
     expect(e.state.cpu.currentState).toBe('blockstun');
-    expect(e.state.cpu.blockstunFramesRemaining).toBeGreaterThan(0);
+    expect(e.state.cpu.runtimeFlags.blockHeight).toBe('low');
+  });
+
+  it('a height mismatch hits: low heavy into a HIGH guard is a clean hit', () => {
+    const e = makeEngine();
+    placeAdjacent(e);
+    const maxHealth = e.state.cpu.health;
+    const events = runSteps(e, HEAVY, BLOCK_HIGH, 16);
+    expect(findBlock(events)).toBeUndefined();
+    const hit = findHit(events);
+    expect(hit).toBeTruthy();
+    expect(e.state.cpu.health).toBe(maxHealth - 11); // full damage
+    expect(e.state.cpu.currentState).toBe('hitstun');
+  });
+
+  it('a height mismatch hits: high light into a LOW guard is a clean hit', () => {
+    const e = makeEngine();
+    placeAdjacent(e);
+    const maxHealth = e.state.cpu.health;
+    const events = runSteps(e, LIGHT, BLOCK_LOW, 12); // sminem_light is high
+    expect(findBlock(events)).toBeUndefined();
+    expect(findHit(events)).toBeTruthy();
+    expect(e.state.cpu.health).toBe(maxHealth - 4);
+  });
+
+  it('a high light into a high guard is blocked', () => {
+    const e = makeEngine();
+    placeAdjacent(e);
+    const maxHealth = e.state.cpu.health;
+    const events = runSteps(e, LIGHT, BLOCK_HIGH, 12);
+    expect(findBlock(events)).toBeTruthy();
+    expect(findHit(events)).toBeUndefined();
+    expect(e.state.cpu.health).toBe(maxHealth); // light chipDamage is 0
+  });
+
+  it('a mid special is blocked by EITHER guard height', () => {
+    const e1 = makeEngine();
+    placeAdjacent(e1);
+    const hp1 = e1.state.cpu.health;
+    expect(findBlock(runSteps(e1, SPECIAL, BLOCK_HIGH, 16))).toBeTruthy();
+    expect(e1.state.cpu.health).toBe(hp1 - 2); // green_candle chip 2
+
+    const e2 = makeEngine();
+    placeAdjacent(e2);
+    const hp2 = e2.state.cpu.health;
+    expect(findBlock(runSteps(e2, SPECIAL, BLOCK_LOW, 16))).toBeTruthy();
+    expect(e2.state.cpu.health).toBe(hp2 - 2);
   });
 });
 

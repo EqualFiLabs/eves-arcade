@@ -41,7 +41,7 @@ export function createFighterState(
     blockstunFramesRemaining: 0,
     hitstopFramesRemaining: 0,
     hasLost: false,
-    runtimeFlags: { blocking: false },
+    runtimeFlags: { blocking: false, blockHeight: 'high' },
   };
 }
 

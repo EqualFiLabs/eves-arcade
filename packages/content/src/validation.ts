@@ -128,6 +128,9 @@ export function validateContent(content: V1Content = getV1Content()): ContentVal
     if (move.damage < 0) errors.push(`${prefix}: damage must be >= 0`);
     if (move.chipDamage < 0) errors.push(`${prefix}: chipDamage must be >= 0`);
     if (move.meterCost < 0) errors.push(`${prefix}: meterCost must be >= 0`);
+    if (!['high', 'mid', 'low'].includes(move.attackHeight)) {
+      errors.push(`${prefix}: attackHeight must be 'high' | 'mid' | 'low'`);
+    }
 
     const activeStart = move.startupFrames;
     const activeEnd = move.startupFrames + move.activeFrames - 1;

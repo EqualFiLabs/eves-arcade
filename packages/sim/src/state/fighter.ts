@@ -56,6 +56,8 @@ export interface BufferedInput {
 export interface FighterRuntimeFlags {
   /** True while the fighter is holding block intent this frame. */
   blocking: boolean;
+  /** Which guard the fighter is holding while blocking (read at hit resolution). */
+  blockHeight: 'high' | 'low';
 }
 
 /** Complete per-fighter simulation state. */
