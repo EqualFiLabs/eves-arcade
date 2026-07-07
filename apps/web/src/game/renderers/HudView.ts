@@ -24,6 +24,9 @@ export class HudView {
   private readonly centerText: Phaser.GameObjects.Text;
   private readonly restartHint: Phaser.GameObjects.Text;
   private centerShown = false;
+  private lastStatus: import('@rpr/sim').RoundStatus | null = null;
+  private cachedLine = '';
+  private cachedKo = '';
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -97,30 +100,35 @@ export class HudView {
     this.meterFill.fillStyle(0xffd866, 1);
     this.meterFill.fillRect(width - margin - BAR_W * cMeter, meterY, BAR_W * cMeter, METER_H);
 
-    this.updateCenterText(status, player, cpu);
+    this.updateCenterText(status);
   }
 
-  private updateCenterText(status: RoundStatus, player: FighterState, cpu: FighterState): void {
+  private updateCenterText(status: RoundStatus): void {
     if (status === 'active') {
       if (this.centerShown) {
         this.centerText.setVisible(false);
         this.centerShown = false;
       }
+      this.lastStatus = status;
       return;
     }
-    const line =
-      status === 'player_win'
-        ? pick(gameCopy.playerWin)
-        : status === 'cpu_win'
-          ? pick(gameCopy.playerLoss)
-          : status === 'intro'
-            ? pick(gameCopy.roundStart)
-            : '';
-    const koSuffix = status === 'player_win' || status === 'cpu_win' ? `\n${pick(gameCopy.ko)}` : '';
-    this.centerText.setText(line + koSuffix).setVisible(true);
+    // Only (re)roll the random copy when the status actually changes, so the
+    // KO / win-loss message stays stable instead of flickering every frame.
+    if (status !== this.lastStatus) {
+      this.cachedLine =
+        status === 'player_win'
+          ? pick(gameCopy.playerWin)
+          : status === 'cpu_win'
+            ? pick(gameCopy.playerLoss)
+            : status === 'intro'
+              ? pick(gameCopy.roundStart)
+              : '';
+      this.cachedKo = status === 'player_win' || status === 'cpu_win' ? pick(gameCopy.ko) : '';
+      this.lastStatus = status;
+    }
+    this.centerText.setText(this.cachedKo ? `${this.cachedLine}\n${this.cachedKo}` : this.cachedLine);
+    this.centerText.setVisible(true);
     this.centerShown = true;
-    void player;
-    void cpu;
   }
 
   get objects(): Phaser.GameObjects.GameObject[] {
