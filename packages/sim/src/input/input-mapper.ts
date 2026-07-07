@@ -24,8 +24,10 @@ export function mapRawInput(raw: RawInputState): CombatInput {
     horizontal: toDir(horizontal),
     vertical: toDir(vertical),
     block: raw.block,
-    light: raw.light,
-    heavy: raw.heavy,
+    lightHigh: raw.lightHigh,
+    lightLow: raw.lightLow,
+    heavyHigh: raw.heavyHigh,
+    heavyLow: raw.heavyLow,
     special: raw.special,
     super: raw.super,
   };
@@ -38,8 +40,10 @@ export const NEUTRAL_RAW: RawInputState = {
   up: false,
   down: false,
   block: false,
-  light: false,
-  heavy: false,
+  lightHigh: false,
+  lightLow: false,
+  heavyHigh: false,
+  heavyLow: false,
   special: false,
   super: false,
   start: false,
@@ -59,8 +63,10 @@ export function mergeRawInput(sources: readonly RawInputState[]): RawInputState 
     merged.up ||= s.up;
     merged.down ||= s.down;
     merged.block ||= s.block;
-    merged.light ||= s.light;
-    merged.heavy ||= s.heavy;
+    merged.lightHigh ||= s.lightHigh;
+    merged.lightLow ||= s.lightLow;
+    merged.heavyHigh ||= s.heavyHigh;
+    merged.heavyLow ||= s.heavyLow;
     merged.special ||= s.special;
     merged.super ||= s.super;
     merged.start ||= s.start;
@@ -70,9 +76,10 @@ export function mergeRawInput(sources: readonly RawInputState[]): RawInputState 
 }
 
 /**
- * Default V1 keyboard bindings (design.md). The apps/web InputMapper maps these
- * `event.code` values to {@link RawInputState} flags. Keyboard stays fully
- * playable without a gamepad (Req 5.10/5.11).
+ * Default V1 keyboard bindings (design.md). High/low light and heavy attacks
+ * split across A/Z (light) and S/X (heavy); special/super stay on C/V. The
+ * apps/web InputMapper maps these `event.code` values to {@link RawInputState}
+ * flags. Keyboard stays fully playable without a gamepad (Req 5.10/5.11).
  */
 export const DEFAULT_KEYBOARD_BINDINGS = {
   left: 'ArrowLeft',
@@ -80,8 +87,10 @@ export const DEFAULT_KEYBOARD_BINDINGS = {
   up: 'ArrowUp',
   down: 'ArrowDown',
   block: 'ShiftLeft',
-  light: 'KeyZ',
-  heavy: 'KeyX',
+  lightHigh: 'KeyA',
+  lightLow: 'KeyZ',
+  heavyHigh: 'KeyS',
+  heavyLow: 'KeyX',
   special: 'KeyC',
   super: 'KeyV',
   start: 'Enter',
@@ -109,6 +118,10 @@ export interface GamepadReading {
   b: boolean;
   x: boolean;
   y: boolean;
+  /** Right shoulder (R1/RB) — special. */
+  r1: boolean;
+  /** Right trigger (R2/RT) pressure 0..1 — super. */
+  r2Pressure: number;
   start: boolean;
   back: boolean;
 }
@@ -117,14 +130,16 @@ export const GAMEPAD_DEADZONE = 0.4;
 
 /**
  * Default V1 gamepad face-button → action mapping (design: optional gamepad).
- *   A → light, B → heavy, X → special, Y → super, L1 → block,
- *   Start → start, Back/Select → mute.
+ *   A → lightHigh, B → lightLow, X → heavyHigh, Y → heavyLow,
+ *   R1 → special, R2 → super, L1 → block, Start → start, Back → mute.
  */
 export const DEFAULT_GAMEPAD_BINDINGS = {
-  light: 'a',
-  heavy: 'b',
-  special: 'x',
-  super: 'y',
+  lightHigh: 'a',
+  lightLow: 'b',
+  heavyHigh: 'x',
+  heavyLow: 'y',
+  special: 'r1',
+  super: 'r2',
   block: 'l1',
   start: 'start',
   mute: 'back',
@@ -143,10 +158,12 @@ export function mapGamepad(g: GamepadReading, deadzone = GAMEPAD_DEADZONE): RawI
     up: g.up || yDir === -1,
     down: g.down || yDir === 1,
     block: g.blockPressure > 0,
-    light: g.a,
-    heavy: g.b,
-    special: g.x,
-    super: g.y,
+    lightHigh: g.a,
+    lightLow: g.b,
+    heavyHigh: g.x,
+    heavyLow: g.y,
+    special: g.r1,
+    super: g.r2Pressure > 0,
     start: g.start,
     mute: g.back,
   };

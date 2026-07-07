@@ -30,7 +30,7 @@ import { SeededRandom } from './seeded-random';
 import type { CpuController, CpuProfile } from './cpu-controller';
 
 /** Which attack button the brain wants to press. */
-type AttackButton = 'light' | 'heavy' | 'special' | 'super';
+type AttackButton = 'lightHigh' | 'lightLow' | 'heavyHigh' | 'heavyLow' | 'special' | 'super';
 
 export class BogdanoffBossBrain implements CpuController {
   private readonly rng = new SeededRandom(0);
@@ -107,7 +107,7 @@ export class BogdanoffBossBrain implements CpuController {
     // 1. Whiff punish — the player is in attack recovery and missed (Req 9.5).
     if (this.playerWhiffing(player, cpu) && rng.chance(profile.punishChance)) {
       if (dist <= CPU_CLOSE_RANGE + 24) {
-        return this.attack('heavy');
+        return this.attack('heavyHigh');
       }
       return this.move(this.towardPlayer(state));
     }
@@ -124,8 +124,11 @@ export class BogdanoffBossBrain implements CpuController {
         return this.blockInput();
       }
       if (rng.chance(profile.aggression)) {
-        // Favor the faster light; heavy is riskier (longer recovery).
-        return rng.chance(0.4) ? this.attack('heavy') : this.attack('light');
+        // Favor the faster lights; heavies are riskier (longer recovery). Mix
+        // high/low so the player can't hold one defensive answer.
+        const heavy = rng.chance(0.4);
+        const high = rng.chance(0.5);
+        return this.attack(heavy ? (high ? 'heavyHigh' : 'heavyLow') : high ? 'lightHigh' : 'lightLow');
       }
       if (rng.chance(profile.specialChance)) {
         return this.attack('special');

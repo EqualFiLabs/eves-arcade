@@ -1,8 +1,10 @@
 import { type FighterDefinition, fighterDefinitionId } from '@rpr/sim';
 import {
   ACTIVATE_GLOBAL_DUMP_ID,
-  BOGDANOFF_BACKHAND_ID,
-  PHONE_SLAM_ID,
+  BOGDANOFF_HEAVY_HIGH_ID,
+  BOGDANOFF_HEAVY_LOW_ID,
+  BOGDANOFF_LIGHT_HIGH_ID,
+  BOGDANOFF_LIGHT_LOW_ID,
   RED_CANDLE_ID,
 } from '../moves/bogdanoff-moves';
 
@@ -30,8 +32,10 @@ export const bogdanoffDefinition: FighterDefinition = {
     airborne: [{ x: -28, y: -132, width: 56, height: 132 }],
   },
   moves: {
-    light: BOGDANOFF_BACKHAND_ID,
-    heavy: PHONE_SLAM_ID,
+    lightHigh: BOGDANOFF_LIGHT_HIGH_ID,
+    lightLow: BOGDANOFF_LIGHT_LOW_ID,
+    heavyHigh: BOGDANOFF_HEAVY_HIGH_ID,
+    heavyLow: BOGDANOFF_HEAVY_LOW_ID,
     special: RED_CANDLE_ID,
     super: ACTIVATE_GLOBAL_DUMP_ID,
   },

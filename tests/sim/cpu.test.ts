@@ -40,7 +40,7 @@ function makeState(seed = 0): GameState {
 
 /** Builds a player attack runtime state in the given phase. */
 function playerMove(phase: MoveRuntimeState['phase']): MoveRuntimeState {
-  return { moveId: 'sminem_heavy' as never, elapsedFrames: 5, phase, hitTargets: [], spentMeter: false };
+  return { moveId: 'sminem_heavy_high' as never, elapsedFrames: 5, phase, hitTargets: [], spentMeter: false };
 }
 
 describe('BogdanoffBossBrain — approach (Req 9.2)', () => {
@@ -93,7 +93,7 @@ describe('BogdanoffBossBrain — close-range attack (Req 9.3)', () => {
     let attacked = false;
     for (let i = 0; i < 200; i++) {
       const input = brain.decide(state, FRESH);
-      if (input.light || input.heavy || input.special) {
+      if (input.lightHigh || input.lightLow || input.heavyHigh || input.heavyLow || input.special) {
         attacked = true;
         break;
       }
@@ -136,7 +136,7 @@ describe('BogdanoffBossBrain — whiff punish (Req 9.5)', () => {
 
     const punisher: CpuProfile = { ...FRESH, punishChance: 1 };
     const input = brain.decide(state, punisher);
-    expect(input.heavy).toBe(true);
+    expect(input.heavyHigh).toBe(true);
   });
 
   it('does not punish when the CPU is still in hitstun (the move connected)', () => {
@@ -201,7 +201,7 @@ describe('BogdanoffBossBrain — variation (Req 9.7)', () => {
       for (let i = 0; i < 40; i++) {
         const input = brain.decide(scenario, DETERMINISTIC);
         labels.push(
-          input.super ? 'S' : input.special ? 'P' : input.heavy ? 'H' : input.light ? 'L' : input.block ? 'B' : input.horizontal !== 0 ? 'M' : '_',
+          input.super ? 'S' : input.special ? 'P' : input.heavyHigh || input.heavyLow ? 'H' : input.lightHigh || input.lightLow ? 'L' : input.block ? 'B' : input.horizontal !== 0 ? 'M' : '_',
         );
       }
       return labels.join('');
@@ -223,7 +223,7 @@ describe('BogdanoffBossBrain — variation (Req 9.7)', () => {
       let s = '';
       for (let i = 0; i < 30; i++) {
         const input = brain.decide(state, DETERMINISTIC);
-        s += input.heavy ? 'H' : input.light ? 'L' : input.block ? 'B' : input.horizontal !== 0 ? 'M' : '_';
+        s += input.heavyHigh || input.heavyLow ? 'H' : input.lightHigh || input.lightLow ? 'L' : input.block ? 'B' : input.horizontal !== 0 ? 'M' : '_';
       }
       return s;
     };

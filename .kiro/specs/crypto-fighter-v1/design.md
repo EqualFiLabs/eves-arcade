@@ -220,8 +220,10 @@ export interface RawInputState {
   up: boolean;
   down: boolean;
   block: boolean;
-  light: boolean;
-  heavy: boolean;
+  lightHigh: boolean;
+  lightLow: boolean;
+  heavyHigh: boolean;
+  heavyLow: boolean;
   special: boolean;
   super: boolean;
   start: boolean;
@@ -232,8 +234,10 @@ export interface CombatInput {
   horizontal: -1 | 0 | 1;
   vertical: -1 | 0 | 1;
   block: boolean;
-  light: boolean;
-  heavy: boolean;
+  lightHigh: boolean;
+  lightLow: boolean;
+  heavyHigh: boolean;
+  heavyLow: boolean;
   special: boolean;
   super: boolean;
 }
@@ -244,14 +248,21 @@ export const DEFAULT_KEYBOARD_BINDINGS = {
   up: "ArrowUp",
   down: "ArrowDown",
   block: "ShiftLeft",
-  light: "KeyZ",
-  heavy: "KeyX",
+  lightHigh: "KeyA",
+  lightLow: "KeyZ",
+  heavyHigh: "KeyS",
+  heavyLow: "KeyX",
   special: "KeyC",
   super: "KeyV",
   start: "Enter",
   mute: "KeyM"
 } as const;
 ```
+
+Light and heavy attacks each have a **high** and **low** variant. The
+distinction is geometric: high hitboxes sit at head/upper-torso height and whiff
+on a crouching hurtbox; low hitboxes sit at leg height and connect on standing
+*and* crouching. Special/super stay single moves on C/V.
 
 Validates: Requirements 5.1 through 5.11.
 

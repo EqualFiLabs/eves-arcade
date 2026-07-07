@@ -16,7 +16,7 @@ import {
   v1Moves,
 } from '@rpr/content';
 
-const LIGHT: CombatInput = { ...NEUTRAL_INPUT, light: true };
+const LIGHT: CombatInput = { ...NEUTRAL_INPUT, lightHigh: true };
 const SUPER: CombatInput = { ...NEUTRAL_INPUT, super: true };
 const NEUTRAL: CombatInput = NEUTRAL_INPUT;
 
@@ -85,7 +85,7 @@ describe('meter gain wired into combat (7.2)', () => {
   it('grants meter on move use (attack_used)', () => {
     const e = makeEngine();
     const events = runSteps(e, LIGHT, 1);
-    expect(e.state.player.meter).toBe(2); // sminem_light.meterGainOnUse
+    expect(e.state.player.meter).toBe(2); // sminem_light_high.meterGainOnUse
     expect(meterEvents(events, 'attack_used')).toHaveLength(1);
     expect(meterEvents(events, 'attack_used')[0]!.delta).toBe(2);
   });

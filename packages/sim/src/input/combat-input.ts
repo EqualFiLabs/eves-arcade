@@ -19,8 +19,14 @@ export interface CombatInput {
   horizontal: InputDirection;
   vertical: InputDirection;
   block: boolean;
-  light: boolean;
-  heavy: boolean;
+  /** High light attack (upper-body hitbox). */
+  lightHigh: boolean;
+  /** Low light attack (leg-level hitbox). */
+  lightLow: boolean;
+  /** High heavy attack (upper-body hitbox). */
+  heavyHigh: boolean;
+  /** Low heavy attack (leg-level hitbox). */
+  heavyLow: boolean;
   special: boolean;
   super: boolean;
 }
@@ -36,8 +42,10 @@ export interface RawInputState {
   up: boolean;
   down: boolean;
   block: boolean;
-  light: boolean;
-  heavy: boolean;
+  lightHigh: boolean;
+  lightLow: boolean;
+  heavyHigh: boolean;
+  heavyLow: boolean;
   special: boolean;
   super: boolean;
   start: boolean;
@@ -49,8 +57,10 @@ export const NEUTRAL_INPUT: CombatInput = {
   horizontal: 0,
   vertical: 0,
   block: false,
-  light: false,
-  heavy: false,
+  lightHigh: false,
+  lightLow: false,
+  heavyHigh: false,
+  heavyLow: false,
   special: false,
   super: false,
 };
@@ -60,7 +70,9 @@ export const isNeutralInput = (input: CombatInput): boolean =>
   input.horizontal === 0 &&
   input.vertical === 0 &&
   !input.block &&
-  !input.light &&
-  !input.heavy &&
+  !input.lightHigh &&
+  !input.lightLow &&
+  !input.heavyHigh &&
+  !input.heavyLow &&
   !input.special &&
   !input.super;

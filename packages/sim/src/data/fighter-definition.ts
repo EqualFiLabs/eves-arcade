@@ -20,8 +20,10 @@ export interface FrameBoxSet {
 
 /** Maps each move slot to its {@link MoveId} for this fighter. */
 export interface FighterMoveMap {
-  light: MoveId;
-  heavy: MoveId;
+  lightHigh: MoveId;
+  lightLow: MoveId;
+  heavyHigh: MoveId;
+  heavyLow: MoveId;
   special: MoveId;
   /** Optional: boss CPU may omit a dedicated super (e.g. Bogdanoff's dump is optional). */
   super?: MoveId;

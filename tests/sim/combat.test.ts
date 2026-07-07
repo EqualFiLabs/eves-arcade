@@ -7,8 +7,8 @@ import {
   v1Moves,
 } from '@rpr/content';
 
-const LIGHT: CombatInput = { ...NEUTRAL_INPUT, light: true };
-const HEAVY: CombatInput = { ...NEUTRAL_INPUT, heavy: true };
+const LIGHT: CombatInput = { ...NEUTRAL_INPUT, lightHigh: true };
+const HEAVY: CombatInput = { ...NEUTRAL_INPUT, heavyHigh: true };
 const SPECIAL: CombatInput = { ...NEUTRAL_INPUT, special: true };
 const BLOCK: CombatInput = { ...NEUTRAL_INPUT, block: true };
 const NEUTRAL: CombatInput = NEUTRAL_INPUT;
@@ -60,7 +60,7 @@ describe('move resolution (6.1)', () => {
     const events = runSteps(e, LIGHT, NEUTRAL, 1);
     const started = findMoveStarted(events);
     expect(started).toBeTruthy();
-    expect(String(started!.moveId)).toBe('sminem_light');
+    expect(String(started!.moveId)).toBe('sminem_light_high');
   });
 
   it('a whiffed move completes and returns the fighter to idle with no hit', () => {
@@ -82,7 +82,7 @@ describe('hit detection and damage (6.2, 6.3, 6.5)', () => {
     const events = runSteps(e, LIGHT, NEUTRAL, 12);
     const hit = findHit(events);
     expect(hit).toBeTruthy();
-    expect(hit!.damage).toBe(4); // sminem_light
+    expect(hit!.damage).toBe(4); // sminem_light_high
     expect(e.state.cpu.health).toBe(maxHealth - 4);
     expect(e.state.cpu.currentState).toBe('hitstun');
     expect(e.state.cpu.stunFramesRemaining).toBeGreaterThan(0);
@@ -122,7 +122,7 @@ describe('one-hit-per-move (6.6)', () => {
 });
 
 describe('block detection (6.4) + perfect-block timing', () => {
-  // sminem_heavy: startup=11, active=4 → first active frame at elapsedFrames=11,
+  // sminem_heavy_high: startup=11, active=4 → first active frame at elapsedFrames=11,
   // which lands on step 12 (move starts step 1 with elapsedFrames=0; step N → N-1).
 
   it('a held guard (normal block) deals chip + blockstun, not a clean hit', () => {
@@ -215,7 +215,7 @@ describe('KO / round finality (6.8)', () => {
     placeAdjacent(e);
     e.state.player.health = 1;
     // CPU strikes with its backhand (light slot, damage 6) — lethal at 1 hp.
-    const events = runSteps(e, NEUTRAL, LIGHT, 12); // bogdanoff_backhand startup=7
+    const events = runSteps(e, NEUTRAL, LIGHT, 12); // bogdanoff_light_high startup=7
     const end = findRoundEnded(events);
     expect(end).toBeTruthy();
     expect(e.state.status).toBe('cpu_win');

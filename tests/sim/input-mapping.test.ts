@@ -17,8 +17,10 @@ const raw = (over: Partial<RawInputState>): RawInputState => ({
   up: false,
   down: false,
   block: false,
-  light: false,
-  heavy: false,
+  lightHigh: false,
+  lightLow: false,
+  heavyHigh: false,
+  heavyLow: false,
   special: false,
   super: false,
   start: false,
@@ -43,15 +45,25 @@ describe('mapRawInput (Req 5)', () => {
   });
 
   it('maps action buttons directly onto the combat input', () => {
-    const out = mapRawInput(raw({ block: true, light: true, heavy: true, special: true, super: true }));
-    expect(out).toMatchObject({ block: true, light: true, heavy: true, special: true, super: true });
+    const out = mapRawInput(
+      raw({ block: true, lightHigh: true, lightLow: true, heavyHigh: true, heavyLow: true, special: true, super: true }),
+    );
+    expect(out).toMatchObject({
+      block: true,
+      lightHigh: true,
+      lightLow: true,
+      heavyHigh: true,
+      heavyLow: true,
+      special: true,
+      super: true,
+    });
   });
 
-  it('preserves simultaneous movement + attack intent (e.g. jump-in heavy)', () => {
-    const out = mapRawInput(raw({ up: true, right: true, heavy: true }));
+  it('preserves simultaneous movement + attack intent (e.g. jump-in heavy high)', () => {
+    const out = mapRawInput(raw({ up: true, right: true, heavyHigh: true }));
     expect(out.horizontal).toBe(1);
     expect(out.vertical).toBe(-1);
-    expect(out.heavy).toBe(true);
+    expect(out.heavyHigh).toBe(true);
   });
 
   it('exposes the default keyboard bindings used by the device mapper', () => {
@@ -61,8 +73,10 @@ describe('mapRawInput (Req 5)', () => {
     expect(b.up).toBe('ArrowUp');
     expect(b.down).toBe('ArrowDown');
     expect(b.block).toBe('ShiftLeft');
-    expect(b.light).toBe('KeyZ');
-    expect(b.heavy).toBe('KeyX');
+    expect(b.lightHigh).toBe('KeyA');
+    expect(b.lightLow).toBe('KeyZ');
+    expect(b.heavyHigh).toBe('KeyS');
+    expect(b.heavyLow).toBe('KeyX');
     expect(b.special).toBe('KeyC');
     expect(b.super).toBe('KeyV');
     expect(b.start).toBe('Enter');
@@ -76,10 +90,10 @@ describe('mergeRawInput (Req 5.11 — keyboard + gamepad coexist)', () => {
   });
 
   it('OR-merges flags so any source asserting a flag wins', () => {
-    const keyboard: RawInputState = { ...NEUTRAL_RAW, right: true, light: true };
-    const pad: RawInputState = { ...NEUTRAL_RAW, up: true, heavy: true };
+    const keyboard: RawInputState = { ...NEUTRAL_RAW, right: true, lightHigh: true };
+    const pad: RawInputState = { ...NEUTRAL_RAW, up: true, heavyLow: true };
     const merged = mergeRawInput([keyboard, pad]);
-    expect(merged).toEqual({ ...NEUTRAL_RAW, right: true, up: true, light: true, heavy: true });
+    expect(merged).toEqual({ ...NEUTRAL_RAW, right: true, up: true, lightHigh: true, heavyLow: true });
   });
 
   it('preserves meta flags (start/mute) from any source', () => {
@@ -102,6 +116,8 @@ describe('mapGamepad (Req 5.11 — optional gamepad)', () => {
     b: false,
     x: false,
     y: false,
+    r1: false,
+    r2Pressure: 0,
     start: false,
     back: false,
   };
@@ -124,19 +140,23 @@ describe('mapGamepad (Req 5.11 — optional gamepad)', () => {
     expect(mapGamepad({ ...neutral, left: true, axisX: 1 }).right).toBe(true);
   });
 
-  it('maps face buttons to actions, L1 to block, and start/back to meta flags', () => {
+  it('maps face buttons to the 4 normals, shoulders to special/super, L1 to block', () => {
     const out = mapGamepad({
       ...neutral,
       a: true,
       b: true,
       x: true,
       y: true,
+      r1: true,
+      r2Pressure: 0.6,
       blockPressure: 0.6,
       start: true,
       back: true,
     });
-    expect(out.light).toBe(true);
-    expect(out.heavy).toBe(true);
+    expect(out.lightHigh).toBe(true);
+    expect(out.lightLow).toBe(true);
+    expect(out.heavyHigh).toBe(true);
+    expect(out.heavyLow).toBe(true);
     expect(out.special).toBe(true);
     expect(out.super).toBe(true);
     expect(out.block).toBe(true);

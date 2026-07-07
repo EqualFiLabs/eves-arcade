@@ -9,9 +9,10 @@ import type { InputSource } from './InputSource';
  * reduces it via the pure {@link mapGamepad}. Keyboard remains fully playable
  * regardless of whether a pad is connected (Req 5.10).
  *
- * Mapping: left stick / D-pad → move, L1 → block, A → light, B → heavy,
- * X → special, Y → super, Start → start, Back → mute. Sticks apply a deadzone
- * so resting drift is ignored. If no pad is connected, `read()` returns neutral.
+ * Mapping: left stick / D-pad → move, L1 → block, A → lightHigh, B → lightLow,
+ * X → heavyHigh, Y → heavyLow, R1 → special, R2 → super, Start → start,
+ * Back → mute. Sticks apply a deadzone so resting drift is ignored. If no pad
+ * is connected, `read()` returns neutral.
  */
 export class GamepadInputSource implements InputSource {
   constructor(private readonly plugin: Phaser.Input.Gamepad.GamepadPlugin) {}
@@ -41,6 +42,8 @@ export class GamepadInputSource implements InputSource {
       b: !!pad.B,
       x: !!pad.X,
       y: !!pad.Y,
+      r1: !!pad.R1,
+      r2Pressure: pad.R2 ?? 0,
       start: this.isDown(pad, 9),
       back: this.isDown(pad, 8),
     };
@@ -58,8 +61,10 @@ const NEUTRAL_RAW: RawInputState = {
   up: false,
   down: false,
   block: false,
-  light: false,
-  heavy: false,
+  lightHigh: false,
+  lightLow: false,
+  heavyHigh: false,
+  heavyLow: false,
   special: false,
   super: false,
   start: false,

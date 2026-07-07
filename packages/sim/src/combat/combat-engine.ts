@@ -169,12 +169,14 @@ export class CombatEngine {
   }
 }
 
-/** Picks the highest-priority move id from input (super > special > heavy > light). */
+/** Picks the highest-priority move id from input (super > special > heavies > lights). */
 function pickMoveId(def: FighterDefinition, input: CombatInput): MoveId | undefined {
   if (input.super) return def.moves.super;
   if (input.special) return def.moves.special;
-  if (input.heavy) return def.moves.heavy;
-  if (input.light) return def.moves.light;
+  if (input.heavyHigh) return def.moves.heavyHigh;
+  if (input.heavyLow) return def.moves.heavyLow;
+  if (input.lightHigh) return def.moves.lightHigh;
+  if (input.lightLow) return def.moves.lightLow;
   return undefined;
 }
 

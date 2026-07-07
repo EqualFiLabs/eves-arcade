@@ -1,5 +1,12 @@
 import { type FighterDefinition, fighterDefinitionId } from '@rpr/sim';
-import { BULL_RUN_BARRAGE_ID, GREEN_CANDLE_ID, SMINEM_HEAVY_ID, SMINEM_LIGHT_ID } from '../moves/sminem-moves';
+import {
+  BULL_RUN_BARRAGE_ID,
+  GREEN_CANDLE_ID,
+  SMINEM_HEAVY_HIGH_ID,
+  SMINEM_HEAVY_LOW_ID,
+  SMINEM_LIGHT_HIGH_ID,
+  SMINEM_LIGHT_LOW_ID,
+} from '../moves/sminem-moves';
 
 export const SMINEM_DEFINITION_ID = fighterDefinitionId('sminem');
 
@@ -25,8 +32,10 @@ export const sminemDefinition: FighterDefinition = {
     airborne: [{ x: -24, y: -120, width: 48, height: 120 }],
   },
   moves: {
-    light: SMINEM_LIGHT_ID,
-    heavy: SMINEM_HEAVY_ID,
+    lightHigh: SMINEM_LIGHT_HIGH_ID,
+    lightLow: SMINEM_LIGHT_LOW_ID,
+    heavyHigh: SMINEM_HEAVY_HIGH_ID,
+    heavyLow: SMINEM_HEAVY_LOW_ID,
     special: GREEN_CANDLE_ID,
     super: BULL_RUN_BARRAGE_ID,
   },

@@ -63,7 +63,7 @@ describe('game state model', () => {
   it('models an executing move with one-hit-per-move tracking', () => {
     const fighter = makeFighter('player');
     fighter.currentMove = {
-      moveId: moveId('sminem_heavy'),
+      moveId: moveId('sminem_heavy_high'),
       elapsedFrames: 6,
       phase: 'active',
       hitTargets: [fighterId('cpu')],

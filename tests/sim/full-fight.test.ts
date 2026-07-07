@@ -14,7 +14,7 @@ import {
  */
 
 const RIGHT: CombatInput = { ...NEUTRAL_INPUT, horizontal: 1 };
-const HEAVY: CombatInput = { ...NEUTRAL_INPUT, heavy: true };
+const HEAVY: CombatInput = { ...NEUTRAL_INPUT, heavyHigh: true };
 const SUPER: CombatInput = { ...NEUTRAL_INPUT, super: true };
 
 function makeEngine(): CombatEngine {

@@ -13,7 +13,7 @@ import type { InputDirection } from '../input/combat-input';
 export type MoveCategory = 'light' | 'heavy' | 'special' | 'super' | 'boss';
 
 /** Button that triggers a move, matching the {@link import('../input/combat-input').CombatInput} flags. */
-export type MoveInputButton = 'light' | 'heavy' | 'special' | 'super';
+export type MoveInputButton = 'lightHigh' | 'lightLow' | 'heavyHigh' | 'heavyLow' | 'special' | 'super';
 
 /** Input required to start a move. V1 moves use a single button; `direction` is reserved for future command inputs. */
 export interface MoveInputCommand {

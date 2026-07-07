@@ -2,18 +2,23 @@ import { type MoveDefinition, moveId } from '@rpr/sim';
 
 // --- Move IDs ---
 
-export const BOGDANOFF_BACKHAND_ID = moveId('bogdanoff_backhand');
-export const PHONE_SLAM_ID = moveId('phone_slam');
+export const BOGDANOFF_LIGHT_HIGH_ID = moveId('bogdanoff_light_high');
+export const BOGDANOFF_LIGHT_LOW_ID = moveId('bogdanoff_light_low');
+export const BOGDANOFF_HEAVY_HIGH_ID = moveId('bogdanoff_heavy_high');
+export const BOGDANOFF_HEAVY_LOW_ID = moveId('bogdanoff_heavy_low');
 export const RED_CANDLE_ID = moveId('red_candle');
 export const ACTIVATE_GLOBAL_DUMP_ID = moveId('activate_global_dump');
 
 // --- Definitions ---
+// High variants place the hitbox at head/upper-torso height (whiffs on a
+// crouching hurtbox); low variants place it at leg height (connects on standing
+// AND crouching). Numbers are first-pass; tuned in Task 22.
 
-/** Basic boss attack: a dismissive backhand. */
-export const bogdanoffBackhand: MoveDefinition = {
-  id: BOGDANOFF_BACKHAND_ID,
+/** Basic boss attack: a dismissive high backhand. */
+export const bogdanoffLightHigh: MoveDefinition = {
+  id: BOGDANOFF_LIGHT_HIGH_ID,
   displayName: 'Illuminati Backhand',
-  inputCommand: { button: 'light' },
+  inputCommand: { button: 'lightHigh' },
   category: 'light',
   startupFrames: 7,
   activeFrames: 4,
@@ -29,15 +34,39 @@ export const bogdanoffBackhand: MoveDefinition = {
   blockable: true,
   airborne: false,
   cancelWindows: [],
-  hitboxes: [{ x: 22, y: -108, width: 60, height: 36, frameStart: 7, frameEnd: 10 }],
-  effects: { animationKey: 'bogdanoff_backhand', audioKey: 'sfx_punch_heavy' },
+  hitboxes: [{ x: 22, y: -128, width: 60, height: 28, frameStart: 7, frameEnd: 10 }],
+  effects: { animationKey: 'bogdanoff_light_high', audioKey: 'sfx_punch_heavy' },
 };
 
-/** Dangerous heavy attack: the phone slam. */
-export const phoneSlam: MoveDefinition = {
-  id: PHONE_SLAM_ID,
+/** Basic boss attack: a low dismissive poke. */
+export const bogdanoffLightLow: MoveDefinition = {
+  id: BOGDANOFF_LIGHT_LOW_ID,
+  displayName: 'Pump Dismissal',
+  inputCommand: { button: 'lightLow' },
+  category: 'light',
+  startupFrames: 7,
+  activeFrames: 4,
+  recoveryFrames: 13,
+  damage: 6,
+  chipDamage: 1,
+  hitstunFrames: 13,
+  blockstunFrames: 9,
+  hitstopFrames: 5,
+  meterGainOnUse: 2,
+  meterGainOnHit: 4,
+  meterCost: 0,
+  blockable: true,
+  airborne: false,
+  cancelWindows: [],
+  hitboxes: [{ x: 22, y: -48, width: 60, height: 32, frameStart: 7, frameEnd: 10 }],
+  effects: { animationKey: 'bogdanoff_light_low', audioKey: 'sfx_punch_heavy' },
+};
+
+/** Dangerous heavy high attack: the phone slam. */
+export const bogdanoffHeavyHigh: MoveDefinition = {
+  id: BOGDANOFF_HEAVY_HIGH_ID,
   displayName: 'Phone Slam',
-  inputCommand: { button: 'heavy' },
+  inputCommand: { button: 'heavyHigh' },
   category: 'heavy',
   startupFrames: 14,
   activeFrames: 5,
@@ -53,9 +82,37 @@ export const phoneSlam: MoveDefinition = {
   blockable: true,
   airborne: false,
   cancelWindows: [],
-  hitboxes: [{ x: 14, y: -150, width: 80, height: 150, frameStart: 14, frameEnd: 18 }],
+  hitboxes: [{ x: 14, y: -130, width: 80, height: 40, frameStart: 14, frameEnd: 18 }],
   effects: {
-    animationKey: 'phone_slam',
+    animationKey: 'bogdanoff_heavy_high',
+    audioKey: 'sfx_phone_slam',
+    effectKey: 'vfx_phone_slam',
+  },
+};
+
+/** Dangerous heavy low attack: a phone slam to the legs. */
+export const bogdanoffHeavyLow: MoveDefinition = {
+  id: BOGDANOFF_HEAVY_LOW_ID,
+  displayName: 'Dump Slam',
+  inputCommand: { button: 'heavyLow' },
+  category: 'heavy',
+  startupFrames: 14,
+  activeFrames: 5,
+  recoveryFrames: 22,
+  damage: 13,
+  chipDamage: 2,
+  hitstunFrames: 20,
+  blockstunFrames: 14,
+  hitstopFrames: 10,
+  meterGainOnUse: 3,
+  meterGainOnHit: 6,
+  meterCost: 0,
+  blockable: true,
+  airborne: false,
+  cancelWindows: [],
+  hitboxes: [{ x: 14, y: -40, width: 80, height: 36, frameStart: 14, frameEnd: 18 }],
+  effects: {
+    animationKey: 'bogdanoff_heavy_low',
     audioKey: 'sfx_phone_slam',
     effectKey: 'vfx_phone_slam',
   },
@@ -121,8 +178,10 @@ export const activateGlobalDump: MoveDefinition = {
 };
 
 export const bogdanoffMoves: MoveDefinition[] = [
-  bogdanoffBackhand,
-  phoneSlam,
+  bogdanoffLightHigh,
+  bogdanoffLightLow,
+  bogdanoffHeavyHigh,
+  bogdanoffHeavyLow,
   redCandle,
   activateGlobalDump,
 ];

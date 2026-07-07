@@ -149,9 +149,11 @@ export function validateContent(content: V1Content = getV1Content()): ContentVal
     if (!Number.isInteger(fighter.maxAirJumps) || fighter.maxAirJumps < 0) {
       errors.push(`${fp}: maxAirJumps must be a non-negative integer`);
     }
-    const slots: Array<['light' | 'heavy' | 'special' | 'super', MoveId | undefined]> = [
-      ['light', fighter.moves.light],
-      ['heavy', fighter.moves.heavy],
+    const slots: Array<['lightHigh' | 'lightLow' | 'heavyHigh' | 'heavyLow' | 'special' | 'super', MoveId | undefined]> = [
+      ['lightHigh', fighter.moves.lightHigh],
+      ['lightLow', fighter.moves.lightLow],
+      ['heavyHigh', fighter.moves.heavyHigh],
+      ['heavyLow', fighter.moves.heavyLow],
       ['special', fighter.moves.special],
       ['super', fighter.moves.super],
     ];

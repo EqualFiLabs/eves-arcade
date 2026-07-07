@@ -34,8 +34,8 @@ const CPU = fighterId('cpu');
 describe('combat events', () => {
   it('each event type discriminates and summarizes correctly', () => {
     const events: CombatEvent[] = [
-      { type: 'hit', frame: 10, attackerId: PLAYER, defenderId: CPU, moveId: moveId('sminem_light'), damage: 5, hitstunFrames: 12 },
-      { type: 'block', frame: 11, attackerId: CPU, defenderId: PLAYER, moveId: moveId('bogdanoff_backhand'), chipDamage: 1, blockstunFrames: 8 },
+      { type: 'hit', frame: 10, attackerId: PLAYER, defenderId: CPU, moveId: moveId('sminem_light_high'), damage: 5, hitstunFrames: 12 },
+      { type: 'block', frame: 11, attackerId: CPU, defenderId: PLAYER, moveId: moveId('bogdanoff_light_high'), chipDamage: 1, blockstunFrames: 8, perfect: false },
       { type: 'meter', frame: 10, fighterId: PLAYER, delta: 10, reason: 'hit_landed' },
       { type: 'meter', frame: 12, fighterId: PLAYER, delta: -50, reason: 'super_spent' },
       { type: 'move_started', frame: 9, fighterId: PLAYER, moveId: moveId('bull_run_barrage') },
@@ -58,7 +58,7 @@ describe('combat events', () => {
       frame: 1,
       attackerId: PLAYER,
       defenderId: CPU,
-      moveId: moveId('sminem_light'),
+      moveId: moveId('sminem_light_high'),
       damage: 5,
       hitstunFrames: 10,
     };

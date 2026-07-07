@@ -42,7 +42,8 @@ export class MenuScene extends Phaser.Scene {
     const controls = [
       'Controls',
       'Move: ← →    Jump: ↑    Crouch: ↓    Block: Left Shift',
-      'Light: Z    Heavy: X    Special: C    Super: V',
+      'Lt High: A   Lt Low: Z   Hy High: S   Hy Low: X',
+      'Special: C   Super: V',
       '',
       'M: mute    Enter: start',
     ];

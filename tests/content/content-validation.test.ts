@@ -14,12 +14,14 @@ describe('V1 content contract', () => {
     expect(REQUIRED_V1_FIGHTER_IDS.map(String)).toEqual(['sminem', 'bogdanoff']);
     expect(String(REQUIRED_V1_STAGE_ID)).toBe('marketControlRoom');
     const moveIds = REQUIRED_V1_MOVE_IDS.map(String);
-    expect(moveIds).toContain('sminem_light');
-    expect(moveIds).toContain('sminem_heavy');
+    expect(moveIds).toContain('sminem_light_high');
+    expect(moveIds).toContain('sminem_light_low');
+    expect(moveIds).toContain('sminem_heavy_high');
+    expect(moveIds).toContain('sminem_heavy_low');
     expect(moveIds).toContain('green_candle');
     expect(moveIds).toContain('bull_run_barrage');
-    expect(moveIds).toContain('bogdanoff_backhand');
-    expect(moveIds).toContain('phone_slam');
+    expect(moveIds).toContain('bogdanoff_light_high');
+    expect(moveIds).toContain('bogdanoff_heavy_high');
     expect(moveIds).toContain('red_candle');
     // activate_global_dump is an OPTIONAL boss super — must not be required.
     expect(moveIds).not.toContain('activate_global_dump');
@@ -36,8 +38,8 @@ describe('validateContent on the real V1 bundle', () => {
   it('Sminem references moves that all exist and hits harder than light when heavy', () => {
     const content = getV1Content();
     const sminem = content.fighters.find((f) => f.id === sminemDefinition.id)!;
-    const light = content.moves.find((m) => String(m.id) === 'sminem_light')!;
-    const heavy = content.moves.find((m) => String(m.id) === 'sminem_heavy')!;
+    const light = content.moves.find((m) => String(m.id) === 'sminem_light_high')!;
+    const heavy = content.moves.find((m) => String(m.id) === 'sminem_heavy_high')!;
     expect(heavy.damage).toBeGreaterThan(light.damage);
     expect(light.startupFrames).toBeLessThan(heavy.startupFrames);
     expect(String(sminem.moves.super)).toBe('bull_run_barrage');
@@ -58,7 +60,7 @@ describe('validateContent catches contract violations', () => {
 
   it('flags a hitbox outside the active window', () => {
     const content = clone();
-    const light = content.moves.find((m) => String(m.id) === 'sminem_light')!;
+    const light = content.moves.find((m) => String(m.id) === 'sminem_light_high')!;
     light.hitboxes[0]!.frameEnd = 999; // well past the active window
     const result = validateContent(content);
     expect(result.ok).toBe(false);
@@ -97,8 +99,8 @@ describe('validateContent catches contract violations', () => {
 
   it('flags a fighter move slot that references an unknown move', () => {
     const content = clone();
-    // Corrupt: point the light slot at an id that doesn't exist in the moves list.
-    content.fighters[0]!.moves.light = 'no_such_move' as never;
+    // Corrupt: point the lightHigh slot at an id that doesn't exist in the moves list.
+    content.fighters[0]!.moves.lightHigh = 'no_such_move' as never;
     const result = validateContent(content);
     expect(result.ok).toBe(false);
     expect(result.errors.join('\n')).toMatch(/references unknown move/);
