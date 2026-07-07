@@ -5,13 +5,13 @@
  * (Reqs 6.1, 6.2, 6.3, 6.5). Blockable attacks met by a valid block stance
  * produce a block result with chip damage + blockstun instead of a clean hit.
  */
-import type { AttackHeight, MoveDefinition } from '../data/move-definition';
+import type { MoveDefinition } from '../data/move-definition';
 import type { MoveId } from '../primitives';
 import type { FighterState } from '../state/fighter';
 import type { GameState } from '../state/game';
 import type { CombatEvent } from './events';
 import type { HitContact } from './collision-system';
-import { METER_GAIN_ON_HIT_RECEIVED } from '../constants';
+import { METER_GAIN_ON_HIT_RECEIVED, METER_GAIN_ON_PERFECT_BLOCK, PERFECT_BLOCK_WINDOW } from '../constants';
 import { grantMeter } from './meter-system';
 
 const clamp = (value: number, lo: number, hi: number): number =>
@@ -29,15 +29,17 @@ function fighterById(state: GameState, id: GameState['player']['id']): FighterSt
 }
 
 /**
- * A defender blocks when holding a valid grounded block stance facing the
- * attacker AND guarding the correct height for the incoming attack: high blocks
- * beat high, low blocks beat low, mid is blocked by either.
+ * A defender blocks when holding a valid grounded block stance. A block pressed
+ * within {@link PERFECT_BLOCK_WINDOW} frames of impact is a "perfect" block —
+ * no chip and a meter reward — so a well-timed tap beats a lazy held guard.
  */
-function isBlocking(defender: FighterState, attackHeight: AttackHeight): boolean {
-  if (defender.currentState !== 'block') return false;
-  if (attackHeight === 'mid') return true;
-  return defender.runtimeFlags.blockHeight === attackHeight;
+function isBlocking(defender: FighterState): boolean {
+  return defender.currentState === 'block';
 }
+
+/** True when the defender's block was pressed recently enough to perfect-block. */
+const isPerfectBlock = (defender: FighterState): boolean =>
+  defender.blockHeldFrames >= 1 && defender.blockHeldFrames <= PERFECT_BLOCK_WINDOW;
 
 function applyHitstop(a: FighterState, b: FighterState, frames: number): void {
   a.hitstopFramesRemaining = Math.max(a.hitstopFramesRemaining, frames);
@@ -64,22 +66,30 @@ export function resolveHitContact(
     attacker.currentMove.hitTargets.push(defender.id);
   }
 
-  const blocked = moveDef.blockable && isBlocking(defender, moveDef.attackHeight);
+  const blocked = moveDef.blockable && isBlocking(defender);
 
   if (blocked) {
-    defender.health = clamp(defender.health - moveDef.chipDamage, 0, defender.maxHealth);
+    const perfect = isPerfectBlock(defender);
+    // Perfect block: no chip. Normal block: full chip.
+    const chip = perfect ? 0 : moveDef.chipDamage;
+    defender.health = clamp(defender.health - chip, 0, defender.maxHealth);
     defender.currentState = 'blockstun';
     defender.blockstunFramesRemaining = moveDef.blockstunFrames;
     defender.runtimeFlags.blocking = false;
     applyHitstop(attacker, defender, moveDef.hitstopFrames);
+    // A perfectly timed read builds meter (reward) — the read is the point.
+    if (perfect) {
+      grantMeter(defender, METER_GAIN_ON_PERFECT_BLOCK, 'hit_received', state.frame, events);
+    }
     events.push({
       type: 'block',
       frame: state.frame,
       attackerId: attacker.id,
       defenderId: defender.id,
       moveId: moveDef.id,
-      chipDamage: moveDef.chipDamage,
+      chipDamage: chip,
       blockstunFrames: moveDef.blockstunFrames,
+      perfect,
     });
     return;
   }

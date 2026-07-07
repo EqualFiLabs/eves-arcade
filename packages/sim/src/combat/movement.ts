@@ -40,15 +40,16 @@ export function applyMovementInput(
   def: FighterDefinition,
   input: CombatInput,
 ): void {
-  // Block intent is tracked even if the final state is something else. While
-  // blocking, up/down selects the guard height (up or neutral = high, down =
-  // low). Jump is suppressed while blocking so block+up guards high instead of
-  // launching.
-  if (input.block && f.grounded) {
-    f.runtimeFlags.blocking = true;
-    f.runtimeFlags.blockHeight = input.vertical === 1 ? 'low' : 'high';
+  // Block intent is tracked even if the final state is something else.
+  f.runtimeFlags.blocking = input.block && f.grounded;
+
+  // Track consecutive held frames for perfect-block timing. Read blockHeldFrames
+  // before updating so a fresh press resets to 1 without a separate prev-field.
+  const wasHeld = f.blockHeldFrames > 0;
+  if (input.block) {
+    f.blockHeldFrames = wasHeld ? f.blockHeldFrames + 1 : 1;
   } else {
-    f.runtimeFlags.blocking = false;
+    f.blockHeldFrames = 0;
   }
 
   // Edge-detect the jump input so an air jump requires a fresh re-press rather
@@ -58,8 +59,8 @@ export function applyMovementInput(
 
   if (!canControl(f)) return;
 
-  // Jump (up input while grounded, and not blocking, launches).
-  if (input.vertical === -1 && f.grounded && !input.block) {
+  // Jump (up input while grounded launches).
+  if (input.vertical === -1 && f.grounded) {
     f.velocity.y = def.jumpVelocity;
     f.grounded = false;
     f.currentState = 'jump';

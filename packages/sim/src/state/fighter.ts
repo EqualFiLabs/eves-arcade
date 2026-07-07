@@ -56,8 +56,6 @@ export interface BufferedInput {
 export interface FighterRuntimeFlags {
   /** True while the fighter is holding block intent this frame. */
   blocking: boolean;
-  /** Which guard the fighter is holding while blocking (read at hit resolution). */
-  blockHeight: 'high' | 'low';
 }
 
 /** Complete per-fighter simulation state. */
@@ -77,6 +75,8 @@ export interface FighterState {
   facing: FacingDirection;
   /** True while the fighter's anchor is on the floor. */
   grounded: boolean;
+  /** Consecutive frames the block button has been held (0 = not held). Drives perfect-block timing. */
+  blockHeldFrames: number;
   /** Air jumps used since leaving the ground (resets on landing). */
   airJumpsUsed: number;
   /** Edge-detect latch: true once the jump input has been released since the last jump. */

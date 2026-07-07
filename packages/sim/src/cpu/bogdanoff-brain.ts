@@ -178,12 +178,7 @@ export class BogdanoffBossBrain implements CpuController {
   }
 
   private blockInput(): CombatInput {
-    // Mix guard heights so the player cannot spam one attack height to always
-    // win (a low guard sometimes catches low heavies, a high guard catches high
-    // lights). The committed stance is held for reactionFrames and is visible in
-    // the renderer, so a read of the stance beats it.
-    const low = this.rng.chance(0.4);
-    return { ...NEUTRAL_INPUT, block: true, vertical: (low ? 1 : 0) as InputDirection };
+    return { ...NEUTRAL_INPUT, block: true };
   }
 
   private attack(button: AttackButton): CombatInput {

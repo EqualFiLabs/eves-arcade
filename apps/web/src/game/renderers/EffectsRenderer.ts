@@ -39,7 +39,7 @@ export class EffectsRenderer {
   private readonly moveCategoryOf: (id: MoveId) => MoveCategory | undefined;
   private koPresented = false;
   /** Telemetry: counts of each feedback kind played (debug + e2e visibility). */
-  readonly counts = { hit: 0, block: 0, special: 0, super: 0, ko: 0 };
+  readonly counts = { hit: 0, block: 0, perfect: 0, special: 0, super: 0, ko: 0 };
 
   constructor(
     scene: Phaser.Scene,
@@ -74,7 +74,7 @@ export class EffectsRenderer {
           this.onHit(this.fighterPos(e.defenderId, player, cpu));
           break;
         case 'block':
-          this.onBlock(this.fighterPos(e.defenderId, player, cpu));
+          this.onBlock(this.fighterPos(e.defenderId, player, cpu), e.perfect);
           break;
         case 'move_started': {
           const cat = this.moveCategoryOf(e.moveId);
@@ -99,7 +99,22 @@ export class EffectsRenderer {
     this.mainCam.shake(80, 0.004);
   }
 
-  private onBlock(pos: { x: number; y: number }): void {
+  private onBlock(pos: { x: number; y: number }, perfect: boolean): void {
+    if (perfect) {
+      // Perfect block: brighter, golden, with a small screen pop — the reward.
+      this.counts.perfect += 1;
+      this.sparks.setParticleTint(SUPER_TINT);
+      this.sparks.explode(16, pos.x, pos.y - 50);
+      this.flash.setFillStyle(SUPER_TINT, 0);
+      this.scene.tweens.add({
+        targets: this.flash,
+        alpha: { start: 0, from: 0, to: 0.28 },
+        duration: 220,
+        yoyo: true,
+        ease: 'Quad.easeOut',
+      });
+      return;
+    }
     this.counts.block += 1;
     this.sparks.setParticleTint(BLOCK_TINT);
     this.sparks.explode(8, pos.x, pos.y - 50);

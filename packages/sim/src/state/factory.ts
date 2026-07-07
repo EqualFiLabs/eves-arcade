@@ -32,6 +32,7 @@ export function createFighterState(
     velocity: { x: 0, y: 0 },
     facing,
     grounded: true,
+    blockHeldFrames: 0,
     airJumpsUsed: 0,
     airJumpReady: false,
     currentState: 'idle',
@@ -41,7 +42,7 @@ export function createFighterState(
     blockstunFramesRemaining: 0,
     hitstopFramesRemaining: 0,
     hasLost: false,
-    runtimeFlags: { blocking: false, blockHeight: 'high' },
+    runtimeFlags: { blocking: false },
   };
 }
 

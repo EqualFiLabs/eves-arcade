@@ -504,8 +504,6 @@ export interface MoveDefinition {
   displayName: string;
   inputCommand: MoveInputCommand;
   category: MoveCategory;
-  /** Which block stance can guard this move (governs blocking only). */
-  attackHeight: AttackHeight;
   startupFrames: number;
   activeFrames: number;
   recoveryFrames: number;
@@ -526,16 +524,13 @@ export interface MoveDefinition {
 }
 
 export type MoveCategory = "light" | "heavy" | "special" | "super" | "boss";
-
-/** Attack height: high blocked only by high guard, low only by low guard, mid by either. */
-export type AttackHeight = "high" | "mid" | "low";
 ```
 
 ### Blocking
 
-- Holding `block` grounded enters the block stance. While blocking, `up` (or neutral) selects a **high** guard and `down` selects a **low** guard; `block+up` does not jump.
-- A move's `attackHeight` decides which guard can stop it: high beats high, low beats low, mid is blocked by either. A height mismatch is a clean hit. Whether a hit connects at all is still decided by hitbox/hurtbox geometry; height only governs blocking.
-- V1 height assignments: lights = high, heavies = low, specials/supers = mid. The CPU mixes guard heights (visible in the renderer) so the player must read the stance to pick the mismatching attack.
+- Holding `block` grounded enters the block stance: incoming blockable hits deal chip damage + blockstun instead of a clean hit (the safe fallback).
+- **Perfect block:** a fresh tap of `block` (within `PERFECT_BLOCK_WINDOW` frames of impact) upgrades the block — no chip damage and a meter reward. A lazy held guard only ever normal-blocks, so the read is the point. Whether a hit connects at all is still decided by hitbox/hurtbox geometry; blocking only governs damage/stun on a connected hit.
+- `blockHeldFrames` on `FighterState` tracks consecutive held frames; reset to 1 on a fresh press (release-to-repress edge), 0 on release.
 
 ### Box Types
 

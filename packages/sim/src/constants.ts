@@ -17,6 +17,16 @@ export const SIM_VERSION = '0.0.0';
 export const METER_GAIN_ON_HIT_RECEIVED = 4;
 
 /**
+ * Window after the block button is first pressed during which an incoming hit
+ * is "perfect-blocked": no chip damage + meter reward (tunable). Tighter than
+ * typical attack startup so it rewards a deliberate read rather than spam.
+ */
+export const PERFECT_BLOCK_WINDOW = 6;
+
+/** Meter granted to the defender on a perfect block (tunable). */
+export const METER_GAIN_ON_PERFECT_BLOCK = 8;
+
+/**
  * Anchor-to-anchor distance (world units) at which the CPU treats the opponent
  * as "close" and may attack/block/retreat (Req 9.3). Tunable.
  */

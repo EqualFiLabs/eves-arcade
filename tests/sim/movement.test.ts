@@ -155,24 +155,21 @@ describe('fixed-step movement (5.3)', () => {
     expect(e.state.player.airJumpsUsed).toBe(0);
   });
 
-  it('block+down guards low (not crouch); block alone or block+up guards high', () => {
+  it('tracks block-held frames: increments while held, resets on release and re-press', () => {
     const e = makeEngine();
-    const BLOCK_DOWN: CombatInput = { ...NEUTRAL_INPUT, block: true, vertical: 1 };
-    const BLOCK_UP: CombatInput = { ...NEUTRAL_INPUT, block: true, vertical: -1 };
     const BLOCK: CombatInput = { ...NEUTRAL_INPUT, block: true };
 
-    e.step(BLOCK_DOWN, NEUTRAL_INPUT);
-    expect(e.state.player.currentState).toBe('block');
-    expect(e.state.player.runtimeFlags.blockHeight).toBe('low');
-
     e.step(BLOCK, NEUTRAL_INPUT);
-    expect(e.state.player.runtimeFlags.blockHeight).toBe('high');
+    expect(e.state.player.blockHeldFrames).toBe(1); // press frame
+    e.step(BLOCK, NEUTRAL_INPUT);
+    e.step(BLOCK, NEUTRAL_INPUT);
+    expect(e.state.player.blockHeldFrames).toBe(3); // grows while held
 
-    e.step(BLOCK_UP, NEUTRAL_INPUT);
-    // block+up must NOT jump — it guards high.
-    expect(e.state.player.grounded).toBe(true);
-    expect(e.state.player.currentState).toBe('block');
-    expect(e.state.player.runtimeFlags.blockHeight).toBe('high');
+    e.step(NEUTRAL_INPUT, NEUTRAL_INPUT); // release
+    expect(e.state.player.blockHeldFrames).toBe(0);
+
+    e.step(BLOCK, NEUTRAL_INPUT); // fresh re-press
+    expect(e.state.player.blockHeldFrames).toBe(1);
   });
 });
 

@@ -22,6 +22,9 @@ function makeFighter(side: 'player' | 'cpu'): FighterState {
     velocity: { x: 0, y: 0 },
     facing: side === 'player' ? 'right' : 'left',
     grounded: true,
+    blockHeldFrames: 0,
+    airJumpsUsed: 0,
+    airJumpReady: false,
     currentState: 'idle',
     currentMove: null,
     inputBuffer: [],
@@ -29,7 +32,7 @@ function makeFighter(side: 'player' | 'cpu'): FighterState {
     blockstunFramesRemaining: 0,
     hitstopFramesRemaining: 0,
     hasLost: false,
-    runtimeFlags: { blocking: false, blockHeight: 'high' },
+    runtimeFlags: { blocking: false },
   };
 }
 

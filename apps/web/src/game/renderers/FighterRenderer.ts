@@ -57,9 +57,7 @@ export class FighterRenderer {
     const x = f.position.x;
     const baseY = f.position.y;
     const isCrouch = f.currentState === 'crouch';
-    const isLowBlock =
-      (f.currentState === 'block' || f.currentState === 'blockstun') && f.runtimeFlags.blockHeight === 'low';
-    const bodyH = isCrouch || isLowBlock ? this.crouchH : this.bodyH;
+    const bodyH = isCrouch ? this.crouchH : this.bodyH;
     const top = baseY - bodyH;
     const halfW = this.bodyW / 2;
     const facingSign = f.facing === 'right' ? 1 : -1;
@@ -76,11 +74,8 @@ export class FighterRenderer {
 
     // Body color by state.
     let fill = this.color;
-    if (f.currentState === 'block' || f.currentState === 'blockstun') {
-      // High guard = blue, low guard = teal so the two stances read distinctly
-      // and the player can read the CPU's commit (Req 11.4).
-      fill = f.runtimeFlags.blockHeight === 'low' ? 0x49d6c4 : 0x6bb8ff;
-    } else if (f.currentState === 'hitstun') fill = 0xffd866;
+    if (f.currentState === 'block' || f.currentState === 'blockstun') fill = 0x6bb8ff;
+    else if (f.currentState === 'hitstun') fill = 0xffd866;
 
     if (ko) {
       // Fallen: flat slab on the floor.

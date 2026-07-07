@@ -26,6 +26,8 @@ export interface BlockEvent {
   readonly moveId: MoveId;
   readonly chipDamage: number;
   readonly blockstunFrames: number;
+  /** True if the block was timed within the perfect-block window (no chip + meter reward). */
+  readonly perfect: boolean;
 }
 
 /** Meter was gained or spent. */
