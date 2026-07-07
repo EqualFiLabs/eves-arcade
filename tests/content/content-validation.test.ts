@@ -44,6 +44,25 @@ describe('validateContent on the real V1 bundle', () => {
     expect(light.startupFrames).toBeLessThan(heavy.startupFrames);
     expect(String(sminem.moves.super)).toBe('bull_run_barrage');
   });
+
+  it('low attacks deal less damage than their high counterparts (reliable-but-weaker)', () => {
+    const moves = getV1Content().moves;
+    const find = (id: string) => moves.find((m) => String(m.id) === id)!;
+    // Low hitboxes connect on crouchers (always-reliable); high ones whiff on
+    // crouch. So low must pay for that reliability with lower damage.
+    for (const [fighter, tier, hi, lo] of [
+      ['sminem', 'light', 4, 3],
+      ['sminem', 'heavy', 11, 9],
+      ['bogdanoff', 'light', 6, 5],
+      ['bogdanoff', 'heavy', 13, 11],
+    ] as const) {
+      const high = find(`${fighter}_${tier}_high`);
+      const low = find(`${fighter}_${tier}_low`);
+      expect(high.damage).toBe(hi);
+      expect(low.damage).toBe(lo);
+      expect(low.damage).toBeLessThan(high.damage);
+    }
+  });
 });
 
 describe('validateContent catches contract violations', () => {
