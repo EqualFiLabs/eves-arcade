@@ -179,6 +179,155 @@
         padding: 12px;
         border-radius: 8px;
       }
+
+      /* ── Result screen ─────────────────────────────────────────────────── */
+      .arcade-result {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: calc(var(--safe-top) + 24px) 16px calc(var(--safe-bottom) + 24px);
+        max-width: 520px;
+        margin: 0 auto;
+        width: 100%;
+      }
+      .arcade-result-outcome {
+        margin: 0;
+        font-size: clamp(28px, 6vw, 44px);
+        letter-spacing: 1px;
+      }
+      .arcade-win { color: #7cf6a4; }
+      .arcade-loss { color: #ff6b6b; }
+      .arcade-result-game {
+        font-size: 14px;
+        color: #8b95a5;
+      }
+      .arcade-result-score {
+        font-size: 18px;
+        color: #cfd6dd;
+      }
+      .arcade-result-score strong {
+        font-size: 32px;
+        color: #ffd866;
+      }
+      .arcade-result-stats {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px 16px;
+        margin: 0;
+        font-size: 13px;
+        color: #8b95a5;
+      }
+      .arcade-result-stats dt { display: inline; }
+      .arcade-result-stats dd { display: inline; margin: 0; color: #cfd6dd; }
+      .arcade-result-duration {
+        font-size: 12px;
+        color: #6a7385;
+      }
+      .arcade-share {
+        width: 100%;
+        background: #14141f;
+        border: 1px solid #2a2a3a;
+        border-radius: 10px;
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: flex-start;
+      }
+      .arcade-share-text {
+        margin: 0;
+        font-size: 14px;
+        color: #cfd6dd;
+      }
+      .arcade-share-url {
+        font-size: 12px;
+        color: #6a7385;
+        word-break: break-all;
+      }
+      .arcade-share-copy {
+        align-self: flex-end;
+        background: #1a1a2e;
+        color: #7cf6a4;
+        border: 1px solid #2a2a3a;
+        border-radius: 6px;
+        padding: 4px 12px;
+        font-family: inherit;
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .arcade-share-copy:hover { border-color: #7cf6a4; }
+      .arcade-share-status {
+        font-size: 11px;
+        color: #ffd866;
+      }
+      .arcade-hooks {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+      }
+      .arcade-hook {
+        display: inline-block;
+        padding: 6px 14px;
+        background: #1a2a1f;
+        color: #7cf6a4;
+        border: 1px solid #2a4a3a;
+        border-radius: 8px;
+        text-decoration: none;
+        font-size: 13px;
+      }
+      .arcade-hook:hover { border-color: #7cf6a4; }
+      .arcade-result-actions {
+        display: flex;
+        gap: 12px;
+        margin-top: 8px;
+      }
+      .arcade-play-again {
+        background: #7cf6a4;
+        color: #0a0a0f;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-family: inherit;
+        font-weight: bold;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      .arcade-play-again:hover { background: #8df6b5; }
+      .arcade-back-to-arcade {
+        background: #14141f;
+        color: #cfd6dd;
+        border: 2px solid #2a2a3a;
+        border-radius: 8px;
+        padding: 10px 20px;
+        font-family: inherit;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      .arcade-back-to-arcade:hover { border-color: #7cf6a4; }
+      .arcade-result-debug {
+        width: 100%;
+        margin-top: 12px;
+        font-size: 11px;
+        color: #6a7385;
+      }
+      .arcade-result-debug summary {
+        cursor: pointer;
+        color: #4a5365;
+      }
+      .arcade-result-debug dl {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 2px 8px;
+      }
+      .arcade-result-debug code {
+        word-break: break-all;
+        color: #4a5365;
+      }
     </style>
   </head>
   <body>

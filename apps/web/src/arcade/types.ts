@@ -8,6 +8,32 @@
  * in Task 7).
  */
 
+/**
+ * The outcome of a completed game session. Built by the game on terminal
+ * status (KO, completion, abort) and reported to the shell via
+ * `ctx.onResult`. The shell shows the DOM result screen and (in ranked play,
+ * Task 7+) submits the result + packed trace for server-side verification.
+ *
+ * `inputTraceHash` and `replayHash` make the result structurally trustworthy:
+ * the server re-runs the sim from `(seed, trace)` and checks both (Task 4.4/8).
+ */
+export interface GameResult {
+  gameId: string;
+  gameVersion: string;
+  /** Build SHA via Vite `define`; identifies the exact deployed binary (Req 8.6). */
+  buildVersion: string;
+  seed: number;
+  outcome: 'win' | 'loss' | 'complete' | 'abort';
+  score: number;
+  /** Game-defined stats (e.g. `{ damageDealt, damageTaken, frames }`). */
+  stats: Record<string, number>;
+  durationMs: number;
+  /** SHA-256 of the versioned bit-packed input trace (Task 4.4, Req 8.3). */
+  inputTraceHash: string;
+  /** SHA-256 of the serialized terminal sim state (Req 8.5). */
+  replayHash: string;
+}
+
 /** Shell-persisted player settings, flowed into a game via the context. */
 export interface ArcadeSettings {
   /** Master mute flag. The shell start interaction doubles as the audio unlock (Req 7.6). */
@@ -44,8 +70,10 @@ export interface ArcadeGameContext {
   parent: HTMLElement;
   session: GameSession;
   settings: ArcadeSettings;
-  /** Live score ticks (optional); the result callback lands in Task 4. */
+  /** Live score ticks (optional). */
   onScore?(score: number): void;
+  /** Terminal result callback — called exactly once when the session ends (Req 4.1). */
+  onResult(result: GameResult): void;
   /** Persist a settings change back to shell storage (e.g. mute toggle in-game). */
   updateSettings?(patch: Partial<ArcadeSettings>): void;
   analytics: AnalyticsHook;

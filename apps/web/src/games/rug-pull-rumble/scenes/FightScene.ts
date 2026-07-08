@@ -10,6 +10,7 @@ import {
   NEUTRAL_INPUT,
   SIM_FPS,
   SIM_STEP_MS,
+  serializeGameState,
 } from '@rpr/sim';
 import {
   bogdanoffCpuProfile,
@@ -19,16 +20,21 @@ import {
   sminemDefinition,
   v1Moves,
 } from '@rpr/content';
+import { GamepadSource, KeyboardSource, MergingSource, TraceRecorder } from '@rpr/controls';
+import type { InputSource } from '@rpr/controls';
+import type { ArcadeGameContext, GameResult } from '../../../arcade/types';
 import { InputMapper } from '../input/InputMapper';
 import { RPR_KEYBOARD_BINDINGS, RPR_GAMEPAD_BINDINGS } from '../input/bindings';
 import type { RprButton } from '../input/buttons';
-import { GamepadSource, KeyboardSource } from '@rpr/controls';
-import type { InputSource } from '@rpr/controls';
+import { rugPullRumbleManifest } from '../manifest';
 import { FighterRenderer } from '../renderers/FighterRenderer';
 import { HudView } from '../renderers/HudView';
 import { StageRenderer } from '../renderers/StageRenderer';
 import { FightCamera } from '../renderers/FightCamera';
 import { EffectsRenderer } from '../renderers/EffectsRenderer';
+
+/** Delay after KO before handing control to the shell result screen (ms). */
+const KO_RESULT_DELAY_MS = 2000;
 
 /**
  * FightScene — owns the Phaser runtime for the fight (design: FightScene).
@@ -43,13 +49,16 @@ import { EffectsRenderer } from '../renderers/EffectsRenderer';
  * distortion. Presentation only ever READS sim state (Property 10); it never
  * mutates combat state. CPU legality is enforced by the engine (Property 9).
  *
- * On KO the scene shows an in-scene result overlay and offers rematch/menu
- * until the dedicated ResultScene lands in Task 18.
+ * On KO the scene delays briefly (KO feedback) then builds a {@link GameResult}
+ * with the input trace hash and terminal state hash, and calls
+ * `ctx.onResult` exactly once. The shell tears down the Phaser instance and
+ * shows the DOM result screen (Req 4.1).
  */
 export class FightScene extends Phaser.Scene {
   private engine!: CombatEngine;
   private brain!: BogdanoffBossBrain;
   private inputMapper!: InputMapper;
+  private recorder!: TraceRecorder<RprButton>;
   private sources: InputSource<RprButton>[] = [];
   private stage!: StageRenderer;
   private playerRenderer!: FighterRenderer;
@@ -62,27 +71,35 @@ export class FightScene extends Phaser.Scene {
   private accumulator = 0;
   private settled = false;
   private muted = false;
+  private resultReported = false;
 
   constructor() {
     super({ key: 'FightScene' });
   }
 
   create(): void {
+    const ctx = this.game.registry.get('arcade') as ArcadeGameContext | undefined;
+    const seed = ctx?.session.seed ?? 0;
+
     this.engine = new CombatEngine({
-      createInitialState: (seed) => createV1FightState(seed),
+      createInitialState: (s) => createV1FightState(s),
       definitions: [sminemDefinition, bogdanoffDefinition],
       moves: v1Moves,
-      seed: 0,
+      seed,
     });
     this.brain = new BogdanoffBossBrain();
-    // Input sources are from @rpr/controls — Phaser-free, DOM-bound. The
-    // gamepad source self-reports availability and returns neutral when no pad
-    // is connected, so it can always be in the merge list (Req 5.10/5.11).
-    this.sources = [
-      new KeyboardSource(RPR_KEYBOARD_BINDINGS),
-      new GamepadSource(RPR_GAMEPAD_BINDINGS),
-    ];
-    this.inputMapper = new InputMapper(this.sources);
+
+    // Input: merge keyboard + gamepad via MergingSource, then wrap with
+    // TraceRecorder so every polled frame is recorded for replay verification
+    // (Req 8.3). The recorder proxy delegates to the merged source.
+    const keyboard = new KeyboardSource(RPR_KEYBOARD_BINDINGS);
+    const gamepad = new GamepadSource(RPR_GAMEPAD_BINDINGS);
+    const merged = new MergingSource<RprButton>([keyboard, gamepad]);
+    this.recorder = new TraceRecorder<RprButton>();
+    const recorded = this.recorder.wrap(merged);
+    this.sources = [keyboard, gamepad];
+    this.inputMapper = new InputMapper([recorded]);
+
     this.muted = !!this.game.registry.get('muted');
 
     // --- Renderers (world space) + HUD (fixed). ---
@@ -124,16 +141,13 @@ export class FightScene extends Phaser.Scene {
 
     this.accumulator = 0;
     this.settled = false;
+    this.resultReported = false;
 
-    this.input.keyboard?.on('keydown-ENTER', () => {
-      if (this.settled) this.scene.restart();
-    });
-    this.input.keyboard?.on('keydown-ESC', () => this.scene.start('MenuScene'));
+    // M toggles mute (persisted via shell context). Enter/ESC no longer restart
+    // or exit — the shell result screen and chrome bar own those flows now.
     this.input.keyboard?.on('keydown-M', () => {
       this.muted = !this.muted;
       this.game.registry.set('muted', this.muted);
-      // Persist via the shell context stashed at launch (Req 1.6).
-      const ctx = this.game.registry.get('arcade') as { updateSettings?: (p: { muted?: boolean }) => void } | undefined;
       ctx?.updateSettings?.({ muted: this.muted });
     });
 
@@ -161,6 +175,10 @@ export class FightScene extends Phaser.Scene {
         this.accumulator -= SIM_STEP_MS;
         if (this.engine.state.status !== 'active') {
           this.settled = true;
+          // Let the player see the KO feedback before the shell result screen.
+          this.time.delayedCall(KO_RESULT_DELAY_MS, () => {
+            void this.reportResult();
+          });
           break;
         }
       }
@@ -176,6 +194,45 @@ export class FightScene extends Phaser.Scene {
     this.fightCam.update(s.player.position.x, s.cpu.position.x, delta);
   }
 
+  /**
+   * Builds the {@link GameResult} from the terminal sim state and calls
+   * `ctx.onResult` exactly once (Req 4.1). The trace hash and replay hash make
+   * the result structurally verifiable (Req 8.3/8.5).
+   */
+  private async reportResult(): Promise<void> {
+    if (this.resultReported) return;
+    this.resultReported = true;
+
+    const ctx = this.game.registry.get('arcade') as ArcadeGameContext | undefined;
+    if (!ctx) return;
+
+    const inputTraceHash = await this.recorder.hash();
+    const replayHash = await sha256Hex(serializeGameState(this.engine.state));
+
+    const s = this.engine.state;
+    const won = s.status === 'player_win';
+    const damageDealt = Math.max(0, s.cpu.maxHealth - s.cpu.health);
+    const damageTaken = Math.max(0, s.player.maxHealth - s.player.health);
+    const score = won
+      ? 1000 + Math.floor((s.player.health / s.player.maxHealth) * 500)
+      : damageDealt * 5;
+
+    const result: GameResult = {
+      gameId: rugPullRumbleManifest.id,
+      gameVersion: rugPullRumbleManifest.version,
+      buildVersion: __BUILD_VERSION__,
+      seed: ctx.session.seed,
+      outcome: won ? 'win' : 'loss',
+      score,
+      stats: { damageDealt, damageTaken, frames: s.frame },
+      durationMs: Math.round(s.frame * SIM_STEP_MS),
+      inputTraceHash,
+      replayHash,
+    };
+
+    ctx.onResult(result);
+  }
+
   shutdown(): void {
     for (const s of this.sources) s.destroy?.();
     this.sources = [];
@@ -185,6 +242,15 @@ export class FightScene extends Phaser.Scene {
     this.hud?.destroy();
     this.effects?.destroy();
   }
+}
+
+/** SHA-256 hex digest of a UTF-8 string via Web Crypto (Req 8.5). */
+async function sha256Hex(data: string): Promise<string> {
+  const bytes = new TextEncoder().encode(data);
+  const ab = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(ab).set(bytes);
+  const digest = await crypto.subtle.digest('SHA-256', ab);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export { SIM_FPS };

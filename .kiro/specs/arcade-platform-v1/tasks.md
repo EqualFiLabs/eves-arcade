@@ -52,23 +52,23 @@ Prerequisite note: `crypto-fighter-v1` Tasks 15 (audio) and 17 (copy) can procee
     - Details: `tests/controls/`: source snapshots from synthesized DOM events, merge semantics, stuck-key prevention on blur, binding-table-driven behavior.
     - _Requirements: 5.1, 5.5, 5.6_
 
-- [ ] 4. Shared result flow and input trace
-  - [ ] 4.1 Add GameResult reporting from RPR
+- [x] 4. Shared result flow and input trace
+  - [x] 4.1 Add GameResult reporting from RPR
     - Details: On KO, FightScene builds `GameResult` (outcome, score, stats, durationMs) and calls `ctx.onResult` exactly once. Shell tears down the game.
     - _Requirements: 2.3, 4.1_
-  - [ ] 4.2 Build the shared DOM result screen
+  - [x] 4.2 Build the shared DOM result screen
     - Details: `arcade/result-screen.ts`: outcome/score/stats, parody share copy with clipboard + visible-text fallback, distribution hooks (enabled only, safe hiding), replay and back-to-arcade actions. Supersedes `crypto-fighter-v1` Task 18 surfaces; reuse its copy/hook content from `@rpr/content`.
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6_
-  - [ ] 4.3 Inject the session seed
+  - [x] 4.3 Inject the session seed
     - Details: Shell generates `GameSession` (local random seed for now, `ranked: false`); RPR uses `ctx.session.seed` instead of hardcoded `0`.
     - _Requirements: 8.2_
-  - [ ] 4.4 Add TraceRecorder to controls
+  - [x] 4.4 Add TraceRecorder to controls
     - Details: `TraceRecorder.wrap(source)` records every polled frame; versioned bit-packing to `Uint8Array`; SHA-256 via `crypto.subtle`. Wire into RPR's fight loop as the single choke point; stamp `inputTraceHash`, `replayHash` (terminal sim state hash), and `buildVersion` (git SHA via Vite define) into `GameResult`.
     - _Requirements: 8.3, 8.4, 8.5, 8.6_
-  - [ ] 4.5 Add determinism CI fixture for RPR
+  - [x] 4.5 Add determinism CI fixture for RPR
     - Details: Record a real `(seed, trace)` fixture; test replays it through `@rpr/sim` and asserts the terminal-state hash. This is the determinism tripwire.
     - _Requirements: 8.1, 8.7_
-  - [ ] 4.6 Add result-flow e2e coverage
+  - [x] 4.6 Add result-flow e2e coverage
     - Details: KO → result screen shows score/share/hooks; replay relaunches; clipboard fallback path.
     - _Requirements: 4.1, 4.3, 4.5, 15.2_
 

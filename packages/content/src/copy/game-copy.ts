@@ -22,6 +22,13 @@ export interface FighterCopyLines {
   loss: string[];
 }
 
+/** Share copy for the DOM result screen (Req 14.1–14.4). Parody tone, legally safe. */
+export interface ShareCopy {
+  win: string[];
+  loss: string[];
+  url: string;
+}
+
 export const gameCopy: GameCopy = {
   title: 'Rug Pull Rumble',
   subtitle: 'Sminem vs Bogdanoff — Proof of Fight',
@@ -52,4 +59,18 @@ export const sminemCopy: FighterCopyLines = {
 export const bogdanoffCopy: FighterCopyLines = {
   win: ['As I predicted.', 'The dump was inevitable.'],
   loss: ['Impossible. A statistical fluke.', 'The chart lied.'],
+};
+
+export const shareCopy: ShareCopy = {
+  win: [
+    'I just rekt Bogdanoff in Rug Pull Rumble! Diamond hands prevail.',
+    'Bull run confirmed — beat Bogdanoff in Rug Pull Rumble.',
+    'He was on the phone, but I still won. Rug Pull Rumble.',
+  ],
+  loss: [
+    'Bogdanoff dumped on me again... running it back in Rug Pull Rumble.',
+    'Liquidated. Typical. But I diamond-handed my way back. Rug Pull Rumble.',
+    'The chart lied. One more round in Rug Pull Rumble.',
+  ],
+  url: 'https://rugpullrumble.xyz',
 };

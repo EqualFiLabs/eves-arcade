@@ -5,6 +5,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // Headless software-GL renders slower than real GPUs; fights take ~20-30s to
+  // reach KO, so the global timeout gives room for KO + result flow + replay.
+  timeout: 120_000,
   reporter: 'list',
   webServer: {
     command: 'pnpm dev',

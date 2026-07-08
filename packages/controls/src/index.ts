@@ -17,3 +17,5 @@ export * from './frame';
 export * from './keyboard-source';
 export * from './gamepad-source';
 export * from './pointer-source';
+export * from './merging-source';
+export * from './trace-recorder';

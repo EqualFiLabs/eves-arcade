@@ -16,6 +16,7 @@ export * from './input/input-mapper';
 export * from './state/fighter';
 export * from './state/game';
 export * from './state/factory';
+export * from './state/serialize';
 export * from './combat/events';
 export * from './combat/movement';
 export * from './combat/box-transform';

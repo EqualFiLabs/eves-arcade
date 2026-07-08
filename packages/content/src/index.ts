@@ -65,8 +65,8 @@ export {
 export { marketControlRoom, MARKET_CONTROL_ROOM_ID } from './stages/market-control-room';
 
 // Copy
-export { gameCopy, sminemCopy, bogdanoffCopy } from './copy/game-copy';
-export type { GameCopy, FighterCopyLines } from './copy/game-copy';
+export { gameCopy, sminemCopy, bogdanoffCopy, shareCopy } from './copy/game-copy';
+export type { GameCopy, FighterCopyLines, ShareCopy } from './copy/game-copy';
 
 // Distribution
 export { distributionHooks } from './distribution/distribution-hooks';

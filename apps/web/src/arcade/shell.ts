@@ -2,6 +2,7 @@ import type {
   ArcadeGameContext,
   ArcadeGameHandle,
   ArcadeGameManifest,
+  GameResult,
   AnalyticsHook,
   ArcadeSettings,
 } from './types';
@@ -9,16 +10,19 @@ import { REGISTRY } from './registry';
 import { consoleAnalytics } from './analytics';
 import { loadSettings, saveSettings } from './settings';
 import { orientationSatisfied, onOrientationChange } from './orientation';
+import { renderResultScreen } from './result-screen';
+
 /**
  * ArcadeShell — the DOM application chrome (Req 1, 4, 7).
  *
  * Owns the selection surface, launches games into a mount element via the
- * `ArcadeGameModule` contract, tears them down on exit, and survives game
- * teardown (it is the only thing that does). Pure DOM/TypeScript — no Phaser.
+ * `ArcadeGameModule` contract, tears them down on exit or KO, shows the DOM
+ * result screen, and survives game teardown (it is the only thing that does).
+ * Pure DOM/TypeScript — no Phaser.
  *
- * Flow: select → (dynamic import) → `module.launch(ctx)` → play → exit →
- * `handle.destroy()` → back to selection. A module load failure shows a readable
- * error and returns to selection without breaking the shell (Req 1.6).
+ * Flow: select → (dynamic import) → `module.launch(ctx)` → play → KO →
+ * `ctx.onResult` → `teardownGame()` → result screen → Play Again / Back.
+ * A module load failure shows a readable error and returns to selection (Req 1.6).
  */
 export class ArcadeShell {
   private settings: ArcadeSettings;
@@ -70,7 +74,7 @@ export class ArcadeShell {
       : '';
   }
 
-  // ── Launch / play / exit ────────────────────────────────────────────────────
+  // ── Launch / play / exit / result ──────────────────────────────────────────
 
   private async launch(manifest: ArcadeGameManifest): Promise<void> {
     this.analytics.track('game_launch_start', { gameId: manifest.id });
@@ -108,6 +112,7 @@ export class ArcadeShell {
       session: { seed, ranked: false, startedAt: Date.now() },
       settings: this.settings,
       onScore: (score) => this.analytics.track('game_score_tick', { gameId: manifest.id, score }),
+      onResult: (result) => this.onGameResult(manifest, result),
       updateSettings: (patch) => {
         this.settings = saveSettings(patch);
       },
@@ -127,7 +132,33 @@ export class ArcadeShell {
   /** Tears down the launched game and returns to selection. */
   exit(): void {
     if (!this.activeManifest) return;
-    const gameId = this.activeManifest.id;
+    this.teardownGame();
+    this.activeManifest = null;
+    this.renderSelection();
+  }
+
+  /** Called when a game reports its terminal result via `ctx.onResult`. */
+  private onGameResult(manifest: ArcadeGameManifest, result: GameResult): void {
+    // Ignore if the player already exited or a different game is now active.
+    if (!this.activeManifest || this.activeManifest.id !== manifest.id) return;
+    this.teardownGame();
+    this.activeManifest = null;
+    this.analytics.track('game_result', {
+      gameId: manifest.id,
+      outcome: result.outcome,
+      score: result.score,
+      durationMs: result.durationMs,
+    });
+    renderResultScreen(this.root, {
+      result,
+      manifest,
+      onPlayAgain: () => { void this.launch(manifest); },
+      onBack: () => this.renderSelection(),
+    });
+  }
+
+  /** Tears down the Phaser instance + orientation watchers. Does NOT clear activeManifest. */
+  private teardownGame(): void {
     this.unsubscribeOrientation?.();
     this.unsubscribeOrientation = null;
     if (this.orientationTimer) {
@@ -140,9 +171,6 @@ export class ArcadeShell {
       console.error('arcade: game destroy threw', err);
     }
     this.handle = null;
-    this.activeManifest = null;
-    this.analytics.track('game_exit', { gameId });
-    this.renderSelection();
   }
 
   // ── Orientation prompt ────────────────────────────────────────────────────
