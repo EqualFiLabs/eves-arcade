@@ -107,7 +107,7 @@ Prerequisite note: `crypto-fighter-v1` Tasks 15 (audio) and 17 (copy) can procee
     - Details: Ticket lifecycle (sign/expire/single-use), verify accept/reject/mismatch-flag, leaderboard excludes unverified, client fallback when API down (Property 7).
     - _Requirements: 9.3, 9.4, 9.5, 10.2, 11.2_
 
-- [ ] 8. Replay viewer (developer/review tool)
+- [x] 8. Replay viewer (developer/review tool)
   - Details: Dev-flagged route: load `(seed, trace)` → instantiate RPR engine + existing renderers → step with speed control. No new rendering code. This is the manual-review tool for top scores (Req 14.2) and a combat debugging tool.
   - _Requirements: 10.5, 14.2_
 
