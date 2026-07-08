@@ -19,3 +19,4 @@ export * from './gamepad-source';
 export * from './pointer-source';
 export * from './merging-source';
 export * from './trace-recorder';
+export * from './touch-overlay';

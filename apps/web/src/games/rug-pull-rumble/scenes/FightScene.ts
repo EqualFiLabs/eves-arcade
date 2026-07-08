@@ -20,12 +20,15 @@ import {
   sminemDefinition,
   v1Moves,
 } from '@rpr/content';
-import { GamepadSource, KeyboardSource, MergingSource, TraceRecorder } from '@rpr/controls';
+import { GamepadSource, KeyboardSource, MergingSource, TraceRecorder, TouchOverlaySource } from '@rpr/controls';
 import type { InputSource } from '@rpr/controls';
 import type { ArcadeGameContext, GameResult } from '../../../arcade/types';
 import { InputMapper } from '../input/InputMapper';
 import { RPR_KEYBOARD_BINDINGS, RPR_GAMEPAD_BINDINGS } from '../input/bindings';
 import type { RprButton } from '../input/buttons';
+import { TouchRprSource } from '../input/touch-adapter';
+import type { TouchButton, TouchAxis } from '../input/touch-adapter';
+import { RPR_TOUCH_LAYOUT } from '../touch-layout';
 import { rugPullRumbleManifest } from '../manifest';
 import { FighterRenderer } from '../renderers/FighterRenderer';
 import { HudView } from '../renderers/HudView';
@@ -89,15 +92,24 @@ export class FightScene extends Phaser.Scene {
     });
     this.brain = new BogdanoffBossBrain();
 
-    // Input: merge keyboard + gamepad via MergingSource, then wrap with
-    // TraceRecorder so every polled frame is recorded for replay verification
-    // (Req 8.3). The recorder proxy delegates to the merged source.
+    // Input: merge keyboard + gamepad (+ touch on touch devices) via
+    // MergingSource, then wrap with TraceRecorder so every polled frame is
+    // recorded for replay verification (Req 8.3). The recorder proxy delegates
+    // to the merged source. Touch overlay is created only when the device
+    // reports touch capability (Req 6.5).
     const keyboard = new KeyboardSource(RPR_KEYBOARD_BINDINGS);
     const gamepad = new GamepadSource(RPR_GAMEPAD_BINDINGS);
-    const merged = new MergingSource<RprButton>([keyboard, gamepad]);
+    const sources: InputSource<RprButton>[] = [keyboard, gamepad];
+
+    if (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0 && ctx?.parent) {
+      const overlay = new TouchOverlaySource<TouchButton, TouchAxis>(ctx.parent, RPR_TOUCH_LAYOUT);
+      sources.push(new TouchRprSource(overlay));
+    }
+
+    const merged = new MergingSource<RprButton>(sources);
     this.recorder = new TraceRecorder<RprButton>();
     const recorded = this.recorder.wrap(merged);
-    this.sources = [keyboard, gamepad];
+    this.sources = sources;
     this.inputMapper = new InputMapper([recorded]);
 
     this.muted = !!this.game.registry.get('muted');

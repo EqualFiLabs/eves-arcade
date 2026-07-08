@@ -72,17 +72,17 @@ Prerequisite note: `crypto-fighter-v1` Tasks 15 (audio) and 17 (copy) can procee
     - Details: KO → result screen shows score/share/hooks; replay relaunches; clipboard fallback path.
     - _Requirements: 4.1, 4.3, 4.5, 15.2_
 
-- [ ] 5. Touch controls and mobile playability
-  - [ ] 5.1 Implement TouchOverlaySource and TouchLayout
+- [x] 5. Touch controls and mobile playability
+  - [x] 5.1 Implement TouchOverlaySource and TouchLayout
     - Details: In `packages/controls`: DOM overlay above the canvas rendering data-driven zones (button, floating stick, drag region); pointer events with per-pointerId tracking, pointer capture, `touch-action: none`; pointer-cancel releases zones (no stuck inputs); `destroy()` removes the layer. Hidden when no touch capability.
     - _Requirements: 6.1, 6.2, 6.3, 6.5, 6.6_
-  - [ ] 5.2 Decide and implement RPR mobile control semantics
+  - [x] 5.2 Decide and implement RPR mobile control semantics
     - Details: Collapse high/low onto stick vertical: down + light/heavy = low variant (crouching-attack convention), reducing buttons to light, heavy, special, super, block + floating stick. Keep keyboard/gamepad semantics equivalent. Prototype on a real device before locking; this is a game-design decision recorded in the RPR reducer, not the controls package.
     - _Requirements: 5.4, 6.4_
-  - [ ] 5.3 Ship the RPR touch layout
+  - [x] 5.3 Ship the RPR touch layout
     - Details: `games/rug-pull-rumble/touch-layout.ts`; merge with keyboard per Req 5.5; verify layout on phone-sized viewports (landscape).
     - _Requirements: 6.4, 6.5, 7.4_
-  - [ ] 5.4 Mobile e2e + manual QA pass
+  - [x] 5.4 Mobile e2e + manual QA pass
     - Details: Playwright mobile project: overlay zones dispatch inputs via synthesized pointer events. Manual: real mid-range Android — control feel, safe areas, audio unlock, no scroll/zoom interference.
     - _Requirements: 6.3, 7.1, 7.6, 15.2_
 
