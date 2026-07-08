@@ -88,6 +88,9 @@ export class MenuScene extends Phaser.Scene {
   private toggleMute(): void {
     this.muted = !this.muted;
     this.game.registry.set('muted', this.muted);
+    // Persist via the shell context stashed at launch (muted now lives in shell settings, Req 1.6).
+    const ctx = this.game.registry.get('arcade') as { updateSettings?: (p: { muted?: boolean }) => void } | undefined;
+    ctx?.updateSettings?.({ muted: this.muted });
     this.startHint.setText(this.startLabel());
   }
 }

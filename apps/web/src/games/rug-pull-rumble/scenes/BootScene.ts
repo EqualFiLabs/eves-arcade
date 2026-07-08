@@ -1,5 +1,5 @@
 import * as Phaser from 'phaser';
-import { checkBrowserSupport, type BrowserSupportReport } from '../support/browser-support';
+import { checkBrowserSupport, type BrowserSupportReport } from '../../../arcade/phaser/browser-support';
 
 /**
  * BootScene — first scene. Checks browser runtime support and routes to the

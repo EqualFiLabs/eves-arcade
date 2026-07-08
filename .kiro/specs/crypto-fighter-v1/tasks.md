@@ -264,10 +264,10 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - Details: Load and play UI, attack, hit, block, special, super, KO, victory, and defeat audio keys.
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
   - [ ] 15.2 Implement browser audio unlock
-    - Details: Keep the game playable if autoplay is blocked and unlock audio after user interaction.
+    - Details: Keep the game playable if autoplay is blocked and unlock audio after user interaction. The arcade shell's start interaction doubles as the unlock gesture (`arcade-platform-v1` Req 7.6); keep an in-game fallback for direct launches.
     - _Requirements: 12.6_
   - [ ] 15.3 Implement mute toggle
-    - Details: Add mute and unmute behavior from menu and fight controls.
+    - Details: Add mute and unmute behavior from menu and fight controls. Mute state is owned by shell settings (localStorage, `arcade-platform-v1` Task 1.6) and arrives via the game context; the AudioController reads/writes that setting instead of the Phaser registry.
     - _Requirements: 12.7_
   - [ ] 15.4 Add safe missing-audio behavior
     - Details: Skip missing audio keys, log warnings in development, and continue gameplay.
@@ -294,10 +294,11 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - Details: Review copy so satire is obvious, protected brands are not used as game identity, and unverified harmful factual claims are not presented as fact.
     - _Requirements: 4.2, 4.6, 17.2, 17.3, 17.4, 17.5_
   - [ ] 17.5 Wire copy into scenes
-    - Details: Use configured copy in menu, fight, HUD, KO, result, unsupported browser, and share surfaces.
+    - Details: Use configured copy in menu, fight, HUD, KO, and unsupported-browser surfaces. Result and share surfaces are the shell's DOM result screen (`arcade-platform-v1` Task 4.2), which consumes the same copy from `@rpr/content` — keep all strings there, none in the shell.
     - _Requirements: 4.1, 4.5, 10.6, 10.7, 14.2, 14.3_
 
 - [ ] 18. Implement result screen, shareability, and distribution hooks
+  - **Superseded (2026-07-07):** the result/share/distribution surfaces now land in the DOM arcade shell. The replacement work is `.kiro/specs/arcade-platform-v1/tasks.md` Task 4 ("Shared result flow and input trace", subtasks 4.1–4.6 *in that file* — all new, unstarted). Subtasks 18.1, 18.3, 18.4, 18.6, 18.7 below map to the shell result screen; 18.2 (restart) is satisfied via shell relaunch; 18.5 (`distributionHooks.ts`) already exists in `@rpr/content` and is consumed by the shell. Do not build an in-Phaser `ResultScene`.
   - [ ] 18.1 Implement `ResultScene`
     - Details: Display win or loss state, parody result copy, restart action, share section, and distribution section.
     - _Requirements: 3.5, 3.6, 7.8, 7.9, 8.7, 8.8, 10.7, 10.8, 10.9_
@@ -338,7 +339,7 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - _Requirements: 16.3, 16.6_
 
 - [ ] 20. Checkpoint: content-complete V1 candidate
-  - Details: Run local browser QA with debug enabled and disabled. Confirm all V1 content appears, copy fits parody tone, hooks work, restart works, and combat is playable.
+  - Details: Run local browser QA with debug enabled and disabled. Confirm all V1 content appears, copy fits parody tone, hooks work (on the shell result screen), restart works (via shell relaunch), and combat is playable.
   - _Requirements: 3, 4, 7, 8, 10, 11, 13, 14, 16, 17_
 
 - [ ] 21. Add testing coverage and quality gates
@@ -349,13 +350,13 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - Details: Verify required fighter definitions, moves, stage, copy keys, asset manifest keys, distribution hooks, and attribution metadata.
     - _Requirements: 3.1, 3.2, 3.3, 4.1, 7.1, 8.2, 13.4, 17.6, 17.7_
   - [ ] 21.3 Add browser load e2e test
-    - Details: Verify the game loads from the dev server, shows loading feedback, reaches menu, and starts the fight.
+    - Details: Verify the app loads from the dev server, reaches the arcade shell, launches Rug Pull Rumble, shows loading feedback, and starts the fight (entry flow per `arcade-platform-v1` Task 1.7).
     - _Requirements: 1.1, 1.5, 1.6, 2.3_
   - [ ] 21.4 Add fight flow e2e test
     - Details: Verify Player movement, attack input, CPU action, health UI, meter UI, and KO result routing.
     - _Requirements: 5.1, 5.5, 5.6, 8.1, 10.1, 10.2, 10.3, 10.7_
   - [ ] 21.5 Add result screen e2e test
-    - Details: Verify win or loss result, restart, share copy, distribution hooks, disabled hook handling, and mute availability.
+    - Details: Runs against the shell's DOM result screen (this coverage is `arcade-platform-v1` Task 4.6; implement it once, there). Verify win or loss result, replay-relaunch, share copy with clipboard fallback, distribution hooks, disabled hook handling, and mute availability.
     - _Requirements: 3.5, 3.6, 12.7, 13, 14_
   - [ ] 21.6 Add static build smoke test
     - Details: Build production assets and serve them locally to confirm the game runs without backend services.
@@ -389,12 +390,12 @@ Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeS
     - Details: Simulate tab stalls or large frame deltas and confirm combat state does not corrupt.
     - _Requirements: 15.4, 15.7_
   - [ ] 23.4 Verify supported desktop browsers
-    - Details: Test current Chromium-based browser, Firefox if feasible, and Safari if feasible.
+    - Details: Test current Chromium-based browser, Firefox if feasible, and Safari if feasible. Mobile browsers and touch are platform work (`arcade-platform-v1` Tasks 5–6), not part of this task.
     - _Requirements: 1.1, 1.4, 15.1_
   - [ ] 23.5 Verify no non-goal dependency slipped in
-    - Details: Confirm V1 does not require online multiplayer, rollback, matchmaking, wallet login, blockchain transactions, token rewards, accounts, backend database, full roster, mobile controls, campaign, level editor, modding, or UGC.
+    - Details: Confirm the fight does not *require* online multiplayer, rollback, matchmaking, wallet login, blockchain transactions, token rewards, accounts, backend database, full roster, campaign, level editor, modding, or UGC. Per the Requirement 18 status banner: backend/rewards/mobile now exist as *optional platform layers* (`arcade-platform-v1`); the check here is that unranked play works with none of them.
     - _Requirements: 18.1, 18.2, 18.3, 18.4, 18.5, 18.6, 18.7, 18.8, 18.9, 18.10, 18.11, 18.12, 18.13_
 
 - [ ] 24. Final checkpoint: V1 release candidate
-  - Details: Run `typecheck`, all simulation tests, content validation tests, browser e2e tests, static build smoke test, and manual QA. Confirm V1 is playable from a static URL, Sminem vs Bogdanoff works, restart works, share copy works, distribution hooks work, audio can be muted, debug is hidden by default, and no backend or wallet is required.
+  - Details: Run `typecheck`, all simulation tests, content validation tests, browser e2e tests, static build smoke test, and manual QA. Confirm V1 is playable from a static URL, Sminem vs Bogdanoff works, restart works via shell relaunch, share copy and distribution hooks work on the shell result screen, audio can be muted, debug is hidden by default, and unranked play requires no backend or wallet.
   - _Requirements: 1 through 18_

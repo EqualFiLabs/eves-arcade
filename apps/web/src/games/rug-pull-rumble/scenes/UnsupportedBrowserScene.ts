@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
 import { gameCopy } from '@rpr/content';
-import type { BrowserSupportReport } from '../support/browser-support';
+import type { BrowserSupportReport } from '../../../arcade/phaser/browser-support';
 
 /**
  * UnsupportedBrowserScene — shows a readable failure message instead of failing

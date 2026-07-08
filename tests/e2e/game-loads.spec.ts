@@ -1,22 +1,11 @@
 import { test, expect } from '@playwright/test';
+import { launchRprViaShell, runningSceneKey } from './helpers';
 
 /**
- * Smoke tests: dev server boots, the canvas mounts, and the Phaser game
- * initializes (Req 1.1 / 2.3). Also covers the Task 10 scene flow: Boot →
- * Preload → Menu → Fight, and that the fixed-step loop advances the sim.
- *
- * Phaser renders text to the canvas (not the DOM), so scene-state assertions
- * read the Phaser instance exposed on `window` by main.ts / FightScene.
+ * Smoke tests through the arcade shell: the DOM shell boots, the game launches
+ * into its own Phaser instance on selection, and the scene flow Boot → Preload →
+ * Menu → Fight advances the simulation (Req 1, 3.5, 15.2).
  */
-
-const ACTIVE = 5; // Phaser.Scenes.RUNNING
-
-async function runningSceneKey(page: import('@playwright/test').Page): Promise<string | undefined> {
-  return page.evaluate((active) => {
-    const scenes = (window as unknown as { __game?: { scene?: { scenes?: { sys?: { settings?: { key?: string; status?: number } } }[] } } }).__game?.scene?.scenes ?? [];
-    return scenes.find((s) => s?.sys?.settings?.status === active)?.sys?.settings?.key;
-  }, ACTIVE);
-}
 
 async function engineFrame(page: import('@playwright/test').Page): Promise<number> {
   return page.evaluate(() => {
@@ -25,33 +14,56 @@ async function engineFrame(page: import('@playwright/test').Page): Promise<numbe
   });
 }
 
-test('game loads into the canvas container', async ({ page }) => {
+async function gameBooted(page: import('@playwright/test').Page): Promise<boolean> {
+  return page.evaluate(() => !!(window as unknown as { __game?: { isBooted: boolean } }).__game?.isBooted);
+}
+
+test('arcade shell loads and lists Rug Pull Rumble', async ({ page }) => {
   await page.goto('/');
+  await expect(page).toHaveTitle(/Meme Arcade/);
+  await expect(page.locator('#app')).toBeAttached();
+  // The shell's game-selection surface renders before any game loads (DOM, no canvas).
+  await expect(page.locator('.arcade-game')).toBeVisible();
+  await expect(page.locator('.arcade-game-title')).toContainText('Rug Pull Rumble');
+});
 
-  await expect(page).toHaveTitle(/Rug Pull Rumble/);
-  await expect(page.locator('#game-container')).toBeAttached();
+test('selecting a game launches its own Phaser instance into the canvas', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.arcade-game').first().click();
   await expect(page.locator('canvas')).toBeVisible();
+  await expect.poll(() => gameBooted(page)).toBe(true);
+});
 
+test('teardown clears the instance; a second launch starts clean (Property 3)', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('.arcade-game').first().click();
+  await expect.poll(() => gameBooted(page)).toBe(true);
+  const first = await page.evaluate(() => (window as unknown as { __game?: object }).__game);
+
+  // Exit to arcade: the shell destroys the Phaser instance + canvas.
+  await page.locator('.arcade-back').click();
+  await expect.poll(() => page.locator('canvas').count()).toBe(0);
+  await expect(page.locator('.arcade-game')).toBeVisible();
   await expect
-    .poll(async () => {
-      return page.evaluate(() => (window as unknown as { __game?: { isBooted: boolean } }).__game?.isBooted);
-    })
-    .toBe(true);
+    .poll(async () => page.evaluate(() => (window as unknown as { __game?: object }).__game))
+    .toBeUndefined();
+
+  // Relaunch: a fresh instance reaches the menu again with no leak from the first.
+  await page.locator('.arcade-game').first().click();
+  await expect.poll(() => runningSceneKey(page)).toBe('MenuScene');
+  const second = await page.evaluate(() => (window as unknown as { __game?: object }).__game);
+  expect(second).toBeTruthy();
+  expect(second).not.toBe(first);
 });
 
 test('scene flow reaches the menu and the fight steps the simulation', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('canvas')).toBeVisible();
-
-  // Boot → Preload → Menu.
-  await expect.poll(() => runningSceneKey(page)).toBe('MenuScene');
+  await launchRprViaShell(page);
 
   // Start the fight; FightScene exposes the engine on window.
   await page.keyboard.press('Enter');
   await expect.poll(() => engineFrame(page)).toBeGreaterThan(0);
 
   // The fixed-step loop keeps advancing frames (Req 15.3). Headless software-GL
-  // renders slower than a real GPU, so poll over a generous window rather than
-  // asserting after a fixed delay.
+  // renders slower than a real GPU, so poll over a generous window.
   await expect.poll(async () => engineFrame(page), { timeout: 15_000 }).toBeGreaterThan(20);
 });

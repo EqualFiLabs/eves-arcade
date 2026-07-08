@@ -1,19 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { launchRprViaShell, runningSceneKey } from './helpers';
 
 /**
  * Task 11.4 — input smoke tests. Drives the keyboard in a real browser and
  * confirms movement and attack inputs reach the deterministic simulation
  * (Req 5.1, 5.5, 5.6, 5.10). Reads the engine exposed on `window.__engine`.
+ * Launched through the arcade shell.
  */
-
-const ACTIVE = 5; // Phaser.Scenes.RUNNING
-
-async function runningSceneKey(page: import('@playwright/test').Page): Promise<string | undefined> {
-  return page.evaluate((active) => {
-    const scenes = (window as unknown as { __game?: { scene?: { scenes?: { sys?: { settings?: { key?: string; status?: number } } }[] } } }).__game?.scene?.scenes ?? [];
-    return scenes.find((s) => s?.sys?.settings?.status === active)?.sys?.settings?.key;
-  }, ACTIVE);
-}
 
 async function snapshot(page: import('@playwright/test').Page): Promise<{ px: number; pmeter: number; chp: number }> {
   return page.evaluate(() => {
@@ -23,9 +16,8 @@ async function snapshot(page: import('@playwright/test').Page): Promise<{ px: nu
 }
 
 test('keyboard movement and attacks reach the simulation', async ({ page }) => {
-  await page.goto('/');
-  await page.locator('canvas').waitFor();
-  await expect.poll(() => runningSceneKey(page)).toBe('MenuScene');
+  await launchRprViaShell(page);
+  // Enter the fight: the helper lands on MenuScene; the engine is exposed once FightScene runs.
   await page.keyboard.press('Enter');
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
 

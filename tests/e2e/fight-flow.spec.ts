@@ -1,20 +1,13 @@
 import { test, expect } from '@playwright/test';
+import { launchRprViaShell, runningSceneKey } from './helpers';
 
 /**
  * Task 13.6 — fight-flow e2e. Verifies fighters + HUD render, keyboard input
  * moves the player, the CPU acts, and a KO surfaces the themed result text.
- * Reads the engine exposed on `window.__engine`. Headless software-GL renders
- * slower than a real GPU, so all assertions poll over generous windows.
+ * Launched through the arcade shell. Reads the engine exposed on `window.__engine`.
+ * Headless software-GL renders slower than a real GPU, so all assertions poll
+ * over generous windows.
  */
-
-const ACTIVE = 5; // Phaser.Scenes.RUNNING
-
-async function runningSceneKey(page: import('@playwright/test').Page): Promise<string | undefined> {
-  return page.evaluate((active) => {
-    const scenes = (window as unknown as { __game?: { scene?: { scenes?: { sys?: { settings?: { key?: string; status?: number } } }[] } } }).__game?.scene?.scenes ?? [];
-    return scenes.find((s) => s?.sys?.settings?.status === active)?.sys?.settings?.key;
-  }, ACTIVE);
-}
 
 async function engineState(page: import('@playwright/test').Page): Promise<{
   frame: number;
@@ -52,9 +45,8 @@ async function effectCounts(page: import('@playwright/test').Page): Promise<{
 }
 
 test('fighters and HUD render, input moves the player, CPU acts, KO surfaces result', async ({ page }) => {
-  await page.goto('/');
-  await page.locator('canvas').waitFor();
-  await expect.poll(() => runningSceneKey(page)).toBe('MenuScene');
+  await launchRprViaShell(page);
+  // Enter the fight: the helper lands on MenuScene; the engine is exposed once FightScene runs.
   await page.keyboard.press('Enter');
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
 

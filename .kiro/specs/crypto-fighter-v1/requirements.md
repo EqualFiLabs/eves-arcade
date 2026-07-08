@@ -1,5 +1,10 @@
 # Requirements Document
 
+> **Status update (2026-07-07):** The project is evolving into a multi-game crypto meme arcade — see `.kiro/specs/arcade-platform-v1/`. This spec remains the record for the Rug Pull Rumble fight itself. Two scoped changes:
+>
+> 1. **Requirement 18 non-goals are V1-scoped, not permanent.** Backend services (18.9), token rewards (18.7), mobile controls (18.11), and leaderboard infrastructure are now *planned platform work* under `arcade-platform-v1` (session tickets, server-side replay verification, touch controls). The V1 fight itself still satisfies all of Requirement 18: unranked play must remain fully playable from static hosting with no backend (this constraint is preserved as `arcade-platform-v1` Requirement 9.5).
+> 2. **Task 18's `ResultScene`/`ShareView`/`DistributionHookView` are superseded** by the shared DOM arcade result screen (`arcade-platform-v1` Requirement 4 / Task 4.2). Requirements 13 and 14 (distribution hooks, shareability) still hold — they are satisfied by the shell surface instead of an in-Phaser scene. Requirement 3.6 (restart without refresh) is satisfied via shell relaunch.
+
 ## Introduction
 
 Proof of Fight V1 is a browser-based, crypto-themed parody fighting game built as a greenfield Phaser 4 project. The first release shall deliver a shareable no-install Player vs CPU fight featuring Sminem against Bogdanoff, with fast loading, meme-forward presentation, tight arcade combat, and distribution hooks for directing players toward related projects after the match. V1 shall prioritize viral playability and a polished vertical slice over roster size, online multiplayer, account systems, or blockchain integration.

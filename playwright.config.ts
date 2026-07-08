@@ -18,8 +18,21 @@ export default defineConfig({
   },
   projects: [
     {
+      // Desktop: runs the full gameplay suite (landscape playability).
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+      testIgnore: /orientation\.spec\.ts/,
+    },
+    {
+      // Mobile portrait: only the orientation gate (Req 7.3). The gameplay specs
+      // require landscape and are excluded here.
+      name: 'mobile-portrait',
+      testMatch: /orientation\.spec\.ts/,
+      use: {
+        viewport: { width: 414, height: 896 },
+        isMobile: true,
+        hasTouch: true,
+      },
     },
   ],
 });

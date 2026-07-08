@@ -1,6 +1,11 @@
 # AGENTS.md — Rug Pull Rumble (Proof of Fight V1)
 
-This project is a **greenfield Phaser 4 browser fighting game**: a single Sminem (player) vs Bogdanoff (CPU) crypto-parody fight. Spec lives in `.kiro/specs/crypto-fighter-v1/` (`requirements.md`, `design.md`, `tasks.md`). Read those before non-trivial work.
+This project is a **Phaser 4 crypto meme arcade in the making**. Rug Pull Rumble — a single Sminem (player) vs Bogdanoff (CPU) crypto-parody fight — is the first game; the repo is migrating to a multi-game arcade platform (DOM shell, per-game Phaser instances, shared controls package, touch/mobile, session tickets + server-side replay verification for future crypto rewards).
+
+Specs live in `.kiro/specs/` — read the relevant one before non-trivial work:
+
+- `.kiro/specs/crypto-fighter-v1/` — the Rug Pull Rumble fight itself (sim, content, presentation). Mostly implemented; note the supersession banners in those files.
+- `.kiro/specs/arcade-platform-v1/` — the arcade platform, migration plan, mobile/touch, backend verification, and the second game (Mempool Squadron). This governs all multi-game and platform work.
 
 A set of **Phaser 4 skills** is installed globally. Load the right skill for the task via the skill tool before writing Phaser code — they encode correct Phaser 4 APIs (not v3) and save you from guessing.
 

@@ -4,31 +4,185 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
-    <meta name="description" content="Proof of Fight V1 — Sminem vs Bogdanoff crypto-parody fighting game." />
-    <title>Rug Pull Rumble</title>
+    <meta name="description" content="Meme Arcade — short-session crypto-parody games." />
+    <title>Meme Arcade</title>
     <style>
+      :root {
+        color-scheme: dark;
+      }
+      /* The [hidden] attribute must always hide, even when an element has an
+         explicit display (e.g. .arcade-rotate uses display:flex). */
+      [hidden] {
+        display: none !important;
+      }
       html,
       body {
         margin: 0;
         padding: 0;
         height: 100%;
         background: #0a0a0f;
+        color: #cfd6dd;
         overflow: hidden;
+        overscroll-behavior: none; /* Req 7.1: no pull-to-refresh / scroll chaining */
         font-family: monospace;
+        /* dynamic viewport units + safe areas (Req 7.1) */
+        --safe-top: env(safe-area-inset-top, 0px);
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
       }
-      #game-container {
+      #app {
         width: 100vw;
         height: 100vh;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      /* ── Selection surface ──────────────────────────────────────────────── */
+      .arcade-select {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: calc(var(--safe-top) + 24px) 16px calc(var(--safe-bottom) + 24px);
+      }
+      .arcade-title {
+        margin: 0;
+        font-size: clamp(36px, 8vw, 64px);
+        color: #7cf6a4;
+        letter-spacing: 2px;
+      }
+      .arcade-sub {
+        margin: 0 0 16px;
+        color: #9fb0c0;
+        font-size: clamp(14px, 3vw, 18px);
+      }
+      .arcade-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        width: min(420px, 92vw);
+      }
+      .arcade-game {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 16px 20px;
+        background: #14141f;
+        color: #cfd6dd;
+        border: 2px solid #2a2a3a;
+        border-radius: 12px;
+        cursor: pointer;
+        font-family: inherit;
+        text-align: left;
+      }
+      .arcade-game:hover {
+        border-color: #7cf6a4;
+        background: #161f1a;
+      }
+      .arcade-game:focus-visible {
+        outline: 3px solid #ffd866;
+        outline-offset: 2px;
+      }
+      .arcade-game-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #7cf6a4;
+      }
+      .arcade-game-tag {
+        font-size: 13px;
+        color: #8b95a5;
+      }
+      .arcade-muted-hint {
+        min-height: 1em;
+        color: #6a7385;
+        font-size: 12px;
+      }
+
+      /* ── Playing surface ────────────────────────────────────────────────── */
+      .arcade-game-shell {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .arcade-chrome {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 6px 10px;
+        background: #0d0d16;
+        border-bottom: 1px solid #2a2a3a;
+      }
+      .arcade-back {
+        background: #14141f;
+        color: #cfd6dd;
+        border: 1px solid #2a2a3a;
+        border-radius: 6px;
+        padding: 4px 10px;
+        font-family: inherit;
+        cursor: pointer;
+      }
+      .arcade-back:hover {
+        border-color: #7cf6a4;
+      }
+      .arcade-now-playing {
+        font-size: 13px;
+        color: #8b95a5;
+      }
+      .arcade-mount {
+        flex: 1 1 auto;
+        position: relative;
+        min-height: 0;
+      }
+      .arcade-mount canvas {
+        display: block;
+        margin: 0 auto;
+      }
+      .arcade-rotate {
+        position: absolute;
+        inset: 0;
+        z-index: 5;
         display: flex;
         align-items: center;
         justify-content: center;
+        background: #0a0a0f;
+        color: #ffd866;
+        font-size: 22px;
+        text-align: center;
+        padding: 24px;
+      }
+      .arcade-loading,
+      .arcade-error {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 24px;
+        text-align: center;
+      }
+      .arcade-error pre {
+        max-width: 80vw;
+        overflow: auto;
+        color: #ff6b6b;
+        background: #160d0d;
+        padding: 12px;
+        border-radius: 8px;
       }
     </style>
   </head>
   <body>
-    <div id="game-container"></div>
+    <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

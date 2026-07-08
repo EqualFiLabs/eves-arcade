@@ -1,5 +1,7 @@
 # Design Document: Proof of Fight V1
 
+> **Status update (2026-07-07):** The project is becoming a multi-game arcade — see `.kiro/specs/arcade-platform-v1/` for the platform design (DOM shell, per-game Phaser instances, shared controls package, touch/mobile, session tickets, server-side replay verification). Deltas affecting this design: `ResultScene`/`ShareView`/`DistributionHookView` move to the shell as a DOM result screen; the game lives under `apps/web/src/games/rug-pull-rumble/` and is launched via `ArcadeGameModule`; input sources move to `packages/controls` (the `RawInputState`→`CombatInput` reduction stays in `@rpr/sim`); the fight seed comes from the session context instead of a constant. The deterministic fixed-step simulation described here is unchanged — it is now also the basis for server-side score verification.
+
 ## Overview
 
 Proof of Fight V1 is a greenfield Phaser 4 browser game that delivers a single focused Player vs CPU parody fight: Sminem vs Bogdanoff. The game runs as a static web app with no backend, no wallet, no accounts, and no install step. The implementation separates deterministic combat simulation from Phaser presentation so the core fight can be tested, tuned, replayed, and potentially extended later without rewriting the rendering layer.

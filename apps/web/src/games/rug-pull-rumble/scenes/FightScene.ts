@@ -130,6 +130,9 @@ export class FightScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-M', () => {
       this.muted = !this.muted;
       this.game.registry.set('muted', this.muted);
+      // Persist via the shell context stashed at launch (Req 1.6).
+      const ctx = this.game.registry.get('arcade') as { updateSettings?: (p: { muted?: boolean }) => void } | undefined;
+      ctx?.updateSettings?.({ muted: this.muted });
     });
 
     (window as unknown as { __engine?: unknown }).__engine = this.engine;

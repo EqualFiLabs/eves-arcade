@@ -1,0 +1,209 @@
+import type {
+  ArcadeGameContext,
+  ArcadeGameHandle,
+  ArcadeGameManifest,
+  AnalyticsHook,
+  ArcadeSettings,
+} from './types';
+import { REGISTRY } from './registry';
+import { consoleAnalytics } from './analytics';
+import { loadSettings, saveSettings } from './settings';
+import { orientationSatisfied, onOrientationChange } from './orientation';
+/**
+ * ArcadeShell — the DOM application chrome (Req 1, 4, 7).
+ *
+ * Owns the selection surface, launches games into a mount element via the
+ * `ArcadeGameModule` contract, tears them down on exit, and survives game
+ * teardown (it is the only thing that does). Pure DOM/TypeScript — no Phaser.
+ *
+ * Flow: select → (dynamic import) → `module.launch(ctx)` → play → exit →
+ * `handle.destroy()` → back to selection. A module load failure shows a readable
+ * error and returns to selection without breaking the shell (Req 1.6).
+ */
+export class ArcadeShell {
+  private settings: ArcadeSettings;
+  private handle: ArcadeGameHandle | null = null;
+  private activeManifest: ArcadeGameManifest | null = null;
+  private unsubscribeOrientation: (() => void) | null = null;
+  private orientationTimer: ReturnType<typeof setInterval> | null = null;
+
+  constructor(
+    private readonly root: HTMLElement,
+    private readonly analytics: AnalyticsHook = consoleAnalytics,
+  ) {
+    this.settings = loadSettings();
+  }
+
+  /** Renders the selection surface. Call once on boot. */
+  start(): void {
+    this.renderSelection();
+  }
+
+  // ── Selection ──────────────────────────────────────────────────────────────
+
+  private renderSelection(): void {
+    this.clear();
+    this.root.innerHTML = `
+      <section class="arcade-select" aria-label="arcade game selection">
+        <h1 class="arcade-title">Meme Arcade</h1>
+        <p class="arcade-sub">Pick a fight. Or a flight.</p>
+        <ul class="arcade-list" role="list"></ul>
+        <p class="arcade-muted-hint"></p>
+      </section>
+    `;
+
+    const list = this.root.querySelector<HTMLElement>('.arcade-list')!;
+    for (const manifest of REGISTRY) {
+      const li = document.createElement('li');
+      const btn = document.createElement('button');
+      btn.className = 'arcade-game';
+      btn.type = 'button';
+      btn.innerHTML = `<span class="arcade-game-title">${escapeHtml(manifest.title)}</span>
+        <span class="arcade-game-tag">${escapeHtml(manifest.tagline ?? '')}</span>`;
+      btn.addEventListener('click', () => void this.launch(manifest));
+      li.appendChild(btn);
+      list.appendChild(li);
+    }
+
+    this.root.querySelector<HTMLElement>('.arcade-muted-hint')!.textContent = this.settings.muted
+      ? 'audio: muted — press M in-game to unmute'
+      : '';
+  }
+
+  // ── Launch / play / exit ────────────────────────────────────────────────────
+
+  private async launch(manifest: ArcadeGameManifest): Promise<void> {
+    this.analytics.track('game_launch_start', { gameId: manifest.id });
+    this.renderLaunching(manifest);
+    let module;
+    try {
+      module = await manifest.load();
+    } catch (err) {
+      this.renderError(manifest, err);
+      return;
+    }
+    if (!this.activeManifest) return; // user hit "back" during load
+
+    // Mount element the game creates its canvas inside; a small chrome bar holds
+    // the exit action so the player can always return to the arcade.
+    this.clear();
+    this.root.innerHTML = `
+      <div class="arcade-game-shell">
+        <header class="arcade-chrome">
+          <button class="arcade-back" type="button">← Arcade</button>
+          <span class="arcade-now-playing"></span>
+        </header>
+        <div class="arcade-rotate" hidden>↻ Rotate your device to play</div>
+        <div class="arcade-mount" id="arcade-mount"></div>
+      </div>
+    `;
+
+    this.root.querySelector<HTMLButtonElement>('.arcade-back')!.addEventListener('click', () => this.exit());
+    this.root.querySelector<HTMLElement>('.arcade-now-playing')!.textContent = manifest.title;
+
+    const mount = this.root.querySelector<HTMLElement>('#arcade-mount')!;
+    const seed = randomSeed();
+    const ctx: ArcadeGameContext = {
+      parent: mount,
+      session: { seed, ranked: false, startedAt: Date.now() },
+      settings: this.settings,
+      onScore: (score) => this.analytics.track('game_score_tick', { gameId: manifest.id, score }),
+      updateSettings: (patch) => {
+        this.settings = saveSettings(patch);
+      },
+      analytics: this.analytics,
+    };
+
+    this.handle = module.launch(ctx);
+    this.updateRotatePrompt();
+    // Instant response in real browsers, plus a short polling fallback that
+    // catches headless/mobile environments where the orientation/resize events
+    // don't dispatch reliably.
+    this.unsubscribeOrientation = onOrientationChange(() => this.updateRotatePrompt());
+    this.orientationTimer = setInterval(() => this.updateRotatePrompt(), 250);
+    this.analytics.track('game_launch_ok', { gameId: manifest.id, seed });
+  }
+
+  /** Tears down the launched game and returns to selection. */
+  exit(): void {
+    if (!this.activeManifest) return;
+    const gameId = this.activeManifest.id;
+    this.unsubscribeOrientation?.();
+    this.unsubscribeOrientation = null;
+    if (this.orientationTimer) {
+      clearInterval(this.orientationTimer);
+      this.orientationTimer = null;
+    }
+    try {
+      this.handle?.destroy();
+    } catch (err) {
+      console.error('arcade: game destroy threw', err);
+    }
+    this.handle = null;
+    this.activeManifest = null;
+    this.analytics.track('game_exit', { gameId });
+    this.renderSelection();
+  }
+
+  // ── Orientation prompt ────────────────────────────────────────────────────
+
+  private updateRotatePrompt(): void {
+    const prompt = this.root.querySelector<HTMLElement>('.arcade-rotate');
+    if (!prompt || !this.activeManifest || !this.handle) return;
+    const ok = orientationSatisfied(this.activeManifest);
+    prompt.hidden = ok;
+    // Pause/resume only when the game advertises support (Req 7.3).
+    if (ok) this.handle.resume?.();
+    else this.handle.pause?.();
+  }
+
+  // ── Render helpers ────────────────────────────────────────────────────────
+
+  private renderLaunching(manifest: ArcadeGameManifest): void {
+    this.activeManifest = manifest;
+    this.clear();
+    this.root.innerHTML = `<section class="arcade-loading">Loading ${escapeHtml(manifest.title)}…</section>`;
+  }
+
+  private renderError(manifest: ArcadeGameManifest, err: unknown): void {
+    this.activeManifest = null;
+    const msg = err instanceof Error ? err.message : String(err);
+    this.analytics.track('game_launch_error', { gameId: manifest.id, error: msg });
+    this.clear();
+    this.root.innerHTML = `
+      <section class="arcade-error">
+        <h2>Couldn’t load ${escapeHtml(manifest.title)}</h2>
+        <pre>${escapeHtml(msg)}</pre>
+        <button class="arcade-back" type="button">← Back to arcade</button>
+      </section>`;
+    this.root.querySelector<HTMLButtonElement>('.arcade-back')!.addEventListener('click', () => this.renderSelection());
+  }
+
+  private clear(): void {
+    // If a game is mid-launch but never produced a handle (load error during
+    // launch), there is nothing to destroy; just clear the DOM.
+    this.root.innerHTML = '';
+  }
+}
+
+/** Suitable 31-bit positive integer seed for a deterministic sim. */
+function randomSeed(): number {
+  return Math.floor(Math.random() * 0x7fffffff);
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => {
+    switch (c) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      default:
+        return '&#39;';
+    }
+  });
+}
