@@ -20,9 +20,10 @@ import {
   v1Moves,
 } from '@rpr/content';
 import { InputMapper } from '../input/InputMapper';
-import { KeyboardInputSource } from '../input/KeyboardInputSource';
-import { GamepadInputSource } from '../input/GamepadInputSource';
-import type { InputSource } from '../input/InputSource';
+import { RPR_KEYBOARD_BINDINGS, RPR_GAMEPAD_BINDINGS } from '../input/bindings';
+import type { RprButton } from '../input/buttons';
+import { GamepadSource, KeyboardSource } from '@rpr/controls';
+import type { InputSource } from '@rpr/controls';
 import { FighterRenderer } from '../renderers/FighterRenderer';
 import { HudView } from '../renderers/HudView';
 import { StageRenderer } from '../renderers/StageRenderer';
@@ -49,7 +50,7 @@ export class FightScene extends Phaser.Scene {
   private engine!: CombatEngine;
   private brain!: BogdanoffBossBrain;
   private inputMapper!: InputMapper;
-  private keyboardSource: KeyboardInputSource | null = null;
+  private sources: InputSource<RprButton>[] = [];
   private stage!: StageRenderer;
   private playerRenderer!: FighterRenderer;
   private cpuRenderer!: FighterRenderer;
@@ -74,13 +75,14 @@ export class FightScene extends Phaser.Scene {
       seed: 0,
     });
     this.brain = new BogdanoffBossBrain();
-    const keyboard = this.input.keyboard;
-    if (!keyboard) throw new Error('FightScene: keyboard input plugin unavailable');
-    const sources: InputSource[] = [];
-    this.keyboardSource = new KeyboardInputSource(keyboard);
-    sources.push(this.keyboardSource);
-    if (this.input.gamepad) sources.push(new GamepadInputSource(this.input.gamepad));
-    this.inputMapper = new InputMapper(sources);
+    // Input sources are from @rpr/controls — Phaser-free, DOM-bound. The
+    // gamepad source self-reports availability and returns neutral when no pad
+    // is connected, so it can always be in the merge list (Req 5.10/5.11).
+    this.sources = [
+      new KeyboardSource(RPR_KEYBOARD_BINDINGS),
+      new GamepadSource(RPR_GAMEPAD_BINDINGS),
+    ];
+    this.inputMapper = new InputMapper(this.sources);
     this.muted = !!this.game.registry.get('muted');
 
     // --- Renderers (world space) + HUD (fixed). ---
@@ -175,8 +177,8 @@ export class FightScene extends Phaser.Scene {
   }
 
   shutdown(): void {
-    this.keyboardSource?.destroy();
-    this.keyboardSource = null;
+    for (const s of this.sources) s.destroy?.();
+    this.sources = [];
     this.stage?.destroy();
     this.playerRenderer?.destroy();
     this.cpuRenderer?.destroy();

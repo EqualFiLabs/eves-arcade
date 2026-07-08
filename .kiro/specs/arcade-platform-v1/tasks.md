@@ -35,20 +35,20 @@ Prerequisite note: `crypto-fighter-v1` Tasks 15 (audio) and 17 (copy) can procee
   - Details: Menu → fight → KO works via shell launch; two sequential launches leak nothing (scene keys, textures, listeners); all suites pass.
   - _Requirements: 3.4, 15.1, 15.2_
 
-- [ ] 3. Create packages/controls and port RPR input
-  - [ ] 3.1 Create the controls package core
+- [x] 3. Create packages/controls and port RPR input
+  - [x] 3.1 Create the controls package core
     - Details: `packages/controls`: `InputFrame<B, X>`, `InputSource`, `mergeFrames` (OR buttons / max-magnitude axes). No Phaser imports anywhere in the package.
     - _Requirements: 5.1, 5.2, 5.5_
-  - [ ] 3.2 Implement KeyboardSource and GamepadSource
+  - [x] 3.2 Implement KeyboardSource and GamepadSource
     - Details: `KeyboardSource` binds `window` keydown/keyup/blur with a `Record<Button, code>` binding table and optional digital axes. `GamepadSource` with binding table, deadzone, pressure buttons (port the `mapGamepad` pattern from `@rpr/sim`). Binding tables are data (Req 5.8).
     - _Requirements: 5.1, 5.2, 5.8_
-  - [ ] 3.3 Implement PointerSource
+  - [x] 3.3 Implement PointerSource
     - Details: Normalized pointer position over a target element → axes; press → button. Needed by Squadron; cheap to build with the same interface now.
     - _Requirements: 5.1_
-  - [ ] 3.4 Port RPR to the controls package
+  - [x] 3.4 Port RPR to the controls package
     - Details: Replace `apps/web/.../input/` sources with controls-package sources configured by RPR's existing bindings (kept as data in the game folder). `RawInputState` ↔ `Buttons<RprButton>` adaptation; `mapRawInput` stays in `@rpr/sim` untouched. Delete the Phaser-coupled input sources.
     - _Requirements: 5.3, 5.4, 5.6, 15.3_
-  - [ ] 3.5 Add controls unit tests
+  - [x] 3.5 Add controls unit tests
     - Details: `tests/controls/`: source snapshots from synthesized DOM events, merge semantics, stuck-key prevention on blur, binding-table-driven behavior.
     - _Requirements: 5.1, 5.5, 5.6_
 

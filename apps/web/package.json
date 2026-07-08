@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@rpr/content": "workspace:*",
+    "@rpr/controls": "workspace:*",
     "@rpr/sim": "workspace:*",
     "phaser": "^4.2.0"
   },
