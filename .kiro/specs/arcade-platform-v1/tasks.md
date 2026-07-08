@@ -86,24 +86,24 @@ Prerequisite note: `crypto-fighter-v1` Tasks 15 (audio) and 17 (copy) can procee
     - Details: Playwright mobile project: overlay zones dispatch inputs via synthesized pointer events. Manual: real mid-range Android — control feel, safe areas, audio unlock, no scroll/zoom interference.
     - _Requirements: 6.3, 7.1, 7.6, 15.2_
 
-- [ ] 6. Checkpoint: RPR mobile-playable MVP
+- [x] 6. Checkpoint: RPR mobile-playable MVP
   - Details: Full loop on desktop (keyboard/gamepad) and phone (touch, landscape prompt): shell → fight → KO → result → share → replay. All suites pass.
   - _Requirements: 6.4, 7.3, 15.1_
 
-- [ ] 7. Protocol package and API with replay verification
-  - [ ] 7.1 Create packages/protocol
+- [x] 7. Protocol package and API with replay verification
+  - [x] 7.1 Create packages/protocol
     - Details: `SessionTicket`, `GameResult`, `ScoreSubmission`, `LeaderboardCategory`, trace encoding (moved from controls or re-exported), encoding version constants. Consumed by web and api.
     - _Requirements: 9.1, 14.1_
-  - [ ] 7.2 Build apps/api skeleton
+  - [x] 7.2 Build apps/api skeleton
     - Details: Fastify/Hono service: `POST /sessions` (HMAC-signed ticket, server seed, expiry = max session + slack, per-IP rate limit), `POST /results`, `GET /leaderboards/:categoryId`. SQLite/Postgres store: results, traces, review flags. Unique index on sessionId enforces single-use.
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.6_
-  - [ ] 7.3 Implement verify/rpr.ts
+  - [x] 7.3 Implement verify/rpr.ts
     - Details: Import `@rpr/sim` + `@rpr/content`; replay `(ticket.seed, trace)` headlessly; recompute `GameResult`; accept on match, reject + flag on mismatch. Validate plausibility: duration vs frames, trace bounds, known build version, pinned game version.
     - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
-  - [ ] 7.4 Wire shell session service with unranked fallback
+  - [x] 7.4 Wire shell session service with unranked fallback
     - Details: `arcade/services/sessions.ts`: request ticket with short timeout; on failure → local seed, `ranked: false`, badge session unranked. `results.ts`: submit ranked results, show placement; store unranked personal bests locally only.
     - _Requirements: 9.5, 9.7, 11.3, 11.4_
-  - [ ] 7.5 Add API and integration tests
+  - [x] 7.5 Add API and integration tests
     - Details: Ticket lifecycle (sign/expire/single-use), verify accept/reject/mismatch-flag, leaderboard excludes unverified, client fallback when API down (Property 7).
     - _Requirements: 9.3, 9.4, 9.5, 10.2, 11.2_
 

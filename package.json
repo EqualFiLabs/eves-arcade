@@ -21,6 +21,7 @@
     "@playwright/test": "^1.48.0",
     "@rpr/content": "workspace:*",
     "@rpr/controls": "workspace:*",
+    "@rpr/protocol": "workspace:*",
     "@rpr/sim": "workspace:*",
     "jsdom": "^25.0.1",
     "@types/node": "^22.8.0",

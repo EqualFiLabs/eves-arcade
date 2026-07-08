@@ -3,6 +3,7 @@ import type {
   ArcadeGameHandle,
   ArcadeGameManifest,
   GameResult,
+  GameSession,
   AnalyticsHook,
   ArcadeSettings,
 } from './types';
@@ -11,6 +12,8 @@ import { consoleAnalytics } from './analytics';
 import { loadSettings, saveSettings } from './settings';
 import { orientationSatisfied, onOrientationChange } from './orientation';
 import { renderResultScreen } from './result-screen';
+import { fetchSession } from './services/sessions';
+import { submitResult, storeLocalBest, getLocalBest } from './services/results';
 
 /**
  * ArcadeShell — the DOM application chrome (Req 1, 4, 7).
@@ -106,13 +109,13 @@ export class ArcadeShell {
     this.root.querySelector<HTMLElement>('.arcade-now-playing')!.textContent = manifest.title;
 
     const mount = this.root.querySelector<HTMLElement>('#arcade-mount')!;
-    const seed = randomSeed();
+    const session = await fetchSession(manifest.id);
     const ctx: ArcadeGameContext = {
       parent: mount,
-      session: { seed, ranked: false, startedAt: Date.now() },
+      session,
       settings: this.settings,
       onScore: (score) => this.analytics.track('game_score_tick', { gameId: manifest.id, score }),
-      onResult: (result) => this.onGameResult(manifest, result),
+      onResult: (result, packedTrace) => this.onGameResult(manifest, result, packedTrace, session),
       updateSettings: (patch) => {
         this.settings = saveSettings(patch);
       },
@@ -126,7 +129,7 @@ export class ArcadeShell {
     // don't dispatch reliably.
     this.unsubscribeOrientation = onOrientationChange(() => this.updateRotatePrompt());
     this.orientationTimer = setInterval(() => this.updateRotatePrompt(), 250);
-    this.analytics.track('game_launch_ok', { gameId: manifest.id, seed });
+    this.analytics.track('game_launch_ok', { gameId: manifest.id, seed: session.seed, ranked: session.ranked });
   }
 
   /** Tears down the launched game and returns to selection. */
@@ -138,7 +141,12 @@ export class ArcadeShell {
   }
 
   /** Called when a game reports its terminal result via `ctx.onResult`. */
-  private onGameResult(manifest: ArcadeGameManifest, result: GameResult): void {
+  private onGameResult(
+    manifest: ArcadeGameManifest,
+    result: GameResult,
+    packedTrace: Uint8Array,
+    session: GameSession,
+  ): void {
     // Ignore if the player already exited or a different game is now active.
     if (!this.activeManifest || this.activeManifest.id !== manifest.id) return;
     this.teardownGame();
@@ -148,10 +156,31 @@ export class ArcadeShell {
       outcome: result.outcome,
       score: result.score,
       durationMs: result.durationMs,
+      ranked: session.ranked,
     });
+
+    // Submit ranked results for verification; store local best for unranked.
+    if (session.ranked && session.ticket) {
+      void submitResult(result, packedTrace, session.ticket).then((res) => {
+        if (res?.accepted) {
+          this.analytics.track('result_accepted', {
+            gameId: manifest.id,
+            score: res.canonicalScore,
+            placement: res.placement,
+          });
+        } else if (res && !res.accepted) {
+          this.analytics.track('result_rejected', { gameId: manifest.id, reason: res.reason });
+        }
+      });
+    } else {
+      storeLocalBest(manifest.id, result.score);
+    }
+
     renderResultScreen(this.root, {
       result,
       manifest,
+      ranked: session.ranked,
+      localBest: getLocalBest(manifest.id),
       onPlayAgain: () => { void this.launch(manifest); },
       onBack: () => this.renderSelection(),
     });
@@ -215,10 +244,6 @@ export class ArcadeShell {
 }
 
 /** Suitable 31-bit positive integer seed for a deterministic sim. */
-function randomSeed(): number {
-  return Math.floor(Math.random() * 0x7fffffff);
-}
-
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => {
     switch (c) {

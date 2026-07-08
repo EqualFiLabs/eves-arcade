@@ -14,13 +14,17 @@ import { distributionHooks, shareCopy, gameCopy } from '@rpr/content';
 export interface ResultScreenOptions {
   result: GameResult;
   manifest: ArcadeGameManifest;
+  /** Whether the session was ranked (ticket verified) or unranked (local). */
+  ranked: boolean;
+  /** Local personal best for unranked play (Req 11.3). */
+  localBest: number;
   onPlayAgain(): void;
   onBack(): void;
 }
 
 /** Renders the result screen into `root` and wires up all actions. */
 export function renderResultScreen(root: HTMLElement, opts: ResultScreenOptions): void {
-  const { result, manifest, onPlayAgain, onBack } = opts;
+  const { result, manifest, ranked, localBest, onPlayAgain, onBack } = opts;
   const won = result.outcome === 'win';
   const outcomeLabel = won
     ? (gameCopy.playerWin[0] ?? 'VICTORY')
@@ -38,6 +42,8 @@ export function renderResultScreen(root: HTMLElement, opts: ResultScreenOptions)
       <h2 class="arcade-result-outcome ${won ? 'arcade-win' : 'arcade-loss'}">${escapeHtml(outcomeLabel)}</h2>
       <div class="arcade-result-game">${escapeHtml(manifest.title)}</div>
       <div class="arcade-result-score">Score <strong>${result.score}</strong></div>
+      <div class="arcade-result-badge ${ranked ? 'arcade-ranked' : 'arcade-unranked'}">${ranked ? 'Ranked' : 'Unranked'}</div>
+      ${!ranked && localBest > 0 ? `<div class="arcade-result-best">Personal best: ${localBest}</div>` : ''}
       <dl class="arcade-result-stats">${statsHtml}</dl>
       <div class="arcade-result-duration">${formatDuration(result.durationMs)}</div>
 

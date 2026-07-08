@@ -1,24 +1,24 @@
 {
-  "name": "@rpr/web",
+  "name": "@rpr/api",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Phaser 4 web app for Rug Pull Rumble.",
+  "description": "Arcade platform API — session tickets, replay verification, leaderboards.",
+  "main": "src/index.ts",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "preview": "vite preview --port 4173",
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src"
   },
   "dependencies": {
     "@rpr/content": "workspace:*",
-    "@rpr/controls": "workspace:*",
     "@rpr/protocol": "workspace:*",
     "@rpr/sim": "workspace:*",
-    "phaser": "^4.2.0"
+    "hono": "^4.6.0"
   },
   "devDependencies": {
-    "vite": "^5.4.10"
+    "@types/node": "^22.8.0",
+    "tsx": "^4.19.0"
   }
 }

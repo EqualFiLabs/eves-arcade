@@ -233,6 +233,7 @@ export class FightScene extends Phaser.Scene {
       gameId: rugPullRumbleManifest.id,
       gameVersion: rugPullRumbleManifest.version,
       buildVersion: __BUILD_VERSION__,
+      sessionId: ctx.session.ticket?.sessionId ?? '',
       seed: ctx.session.seed,
       outcome: won ? 'win' : 'loss',
       score,
@@ -242,7 +243,7 @@ export class FightScene extends Phaser.Scene {
       replayHash,
     };
 
-    ctx.onResult(result);
+    ctx.onResult(result, this.recorder.pack());
   }
 
   shutdown(): void {
