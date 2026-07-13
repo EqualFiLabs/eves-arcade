@@ -12,6 +12,13 @@ const inertModule: ArcadeGameModule = {
 };
 
 const load = async (): Promise<ArcadeGameModule> => inertModule;
+const loadReplay = async () => ({
+  launch: () => ({
+    ready: Promise.resolve(),
+    progress: Object.freeze({ frame: 0, totalFrames: 0, playing: false, speed: 1 as const }),
+    play() {}, pause() {}, step() {}, setSpeed() {}, async destroy() {},
+  }),
+});
 
 export const PLATFORM_CONTRACT_EXAMPLES = [
   {
@@ -22,9 +29,10 @@ export const PLATFORM_CONTRACT_EXAMPLES = [
     },
     title: 'Example Fighter',
     orientation: 'landscape',
-    capabilities: { input: { keyboard: true, pointer: false, touch: true, gamepad: true }, suspension: true, replay: true },
+    capabilities: { input: { keyboard: true, pointer: false, touch: true, gamepad: true }, suspension: true },
+    replay: { load: loadReplay },
     leaderboards: [{ id: 'fighter.wins', label: 'Wins', metric: 'wins', order: 'desc' }],
-    localBest: { metric: 'score', order: 'desc' },
+    localBest: { metric: 'score', label: 'Best Score', order: 'desc' },
     load,
   },
   {
@@ -35,9 +43,10 @@ export const PLATFORM_CONTRACT_EXAMPLES = [
     },
     title: 'Example Launcher',
     orientation: 'portrait',
-    capabilities: { input: { keyboard: true, pointer: true, touch: true, gamepad: false }, suspension: true, replay: true },
+    capabilities: { input: { keyboard: true, pointer: true, touch: true, gamepad: false }, suspension: true },
+    replay: { load: loadReplay },
     leaderboards: [{ id: 'launcher.distance', label: 'Distance', metric: 'distance', order: 'desc' }],
-    localBest: { metric: 'distance', order: 'desc' },
+    localBest: { metric: 'distance', label: 'Longest Flight', order: 'desc', fractionDigits: 1, suffix: ' km' },
     load,
   },
   {
@@ -48,9 +57,9 @@ export const PLATFORM_CONTRACT_EXAMPLES = [
     },
     title: 'Example Score Attack',
     orientation: 'any',
-    capabilities: { input: { keyboard: false, pointer: true, touch: true, gamepad: false }, suspension: false, replay: false },
+    capabilities: { input: { keyboard: false, pointer: true, touch: true, gamepad: false }, suspension: false },
     leaderboards: [],
-    localBest: { metric: 'points', order: 'desc' },
+    localBest: { metric: 'points', label: 'Best Points', order: 'desc' },
     load,
   },
   {
@@ -61,7 +70,7 @@ export const PLATFORM_CONTRACT_EXAMPLES = [
     },
     title: 'Example Sandbox',
     orientation: 'any',
-    capabilities: { input: { keyboard: true, pointer: true, touch: false, gamepad: false }, suspension: true, replay: false },
+    capabilities: { input: { keyboard: true, pointer: true, touch: false, gamepad: false }, suspension: true },
     leaderboards: [],
     load,
   },

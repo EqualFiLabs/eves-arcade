@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 import { launchRprViaShell, runningSceneKey } from './helpers';
 
 /**
@@ -60,7 +61,19 @@ test('KO → DOM result screen with score/share/hooks → Play Again relaunches'
   await expect(page.locator('.arcade-share-copy')).toBeVisible();
 
   // Distribution hooks: at least the enabled "related-project" hook is visible.
-  await expect(page.locator('.arcade-hook').first()).toBeVisible();
+  await expect(page.locator('.arcade-result-link').first()).toBeVisible();
+
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+
+  // Results remain reachable when mobile browser chrome leaves a short viewport.
+  await page.setViewportSize({ width: 320, height: 360 });
+  const resultSurface = page.locator('.arcade-result');
+  expect(await resultSurface.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
+  await page.locator('.arcade-play-again').scrollIntoViewIfNeeded();
+  await expect(page.locator('.arcade-play-again')).toBeVisible();
 
   // The game instance was torn down (window.__game cleared by the shell).
   const gameAlive = await page.evaluate(() => {

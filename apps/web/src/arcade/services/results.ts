@@ -89,11 +89,14 @@ export function storeLocalBest(
   }
 }
 
-export function getLocalBest(id: string, metric: string): number {
+export function getLocalBest(id: string, metric: string): number | null {
   try {
-    return Number(localStorage.getItem(`arcade:best:${id}:${metric}`)) || 0;
+    const stored = localStorage.getItem(`arcade:best:${id}:${metric}`);
+    if (stored === null) return null;
+    const value = Number(stored);
+    return Number.isFinite(value) ? value : null;
   } catch {
-    return 0;
+    return null;
   }
 }
 

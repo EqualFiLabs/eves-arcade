@@ -1,4 +1,6 @@
 import { ArcadeShell } from './arcade/shell';
+import { REGISTRY } from './arcade/registry';
+import './styles/arcade.css';
 
 /**
  * App entry — boots the DOM arcade shell (not Phaser). The shell loads games by
@@ -10,6 +12,10 @@ import { ArcadeShell } from './arcade/shell';
  * tool (Req 14.2). Only accessible when `import.meta.env.DEV` is true (Vite
  * strips this in production builds).
  */
+interface ActiveSurface {
+  destroy(): void | Promise<void>;
+}
+
 function boot(): void {
   const root = document.getElementById('app');
   if (!root) throw new Error('arcade: missing #app root element');
@@ -18,16 +24,33 @@ function boot(): void {
     typeof import.meta !== 'undefined' &&
     Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV);
 
-  if (isDev && location.hash === '#replay') {
-    void import('./arcade/replay').then(({ showReplayViewer }) => {
-      showReplayViewer(root);
-    });
-    return;
-  }
+  let active: ActiveSurface | null = null;
+  let routeId = 0;
+  const renderRoute = async (): Promise<void> => {
+    const id = ++routeId;
+    const previous = active;
+    active = null;
+    if (previous) await previous.destroy();
+    if (id !== routeId) return;
 
-  const shell = new ArcadeShell(root);
-  shell.start();
-  window.addEventListener('pagehide', () => { void shell.destroy(); }, { once: true });
+    if (isDev && location.hash === '#replay') {
+      const { showReplayViewer } = await import('./arcade/replay');
+      if (id !== routeId) return;
+      active = showReplayViewer(root, {
+        registry: REGISTRY,
+        onBack: () => { location.hash = ''; },
+      });
+      return;
+    }
+
+    const shell = new ArcadeShell(root);
+    active = shell;
+    shell.start();
+  };
+
+  window.addEventListener('hashchange', () => { void renderRoute(); });
+  window.addEventListener('pagehide', () => { void active?.destroy(); }, { once: true });
+  void renderRoute();
 }
 
 if (document.readyState === 'loading') {

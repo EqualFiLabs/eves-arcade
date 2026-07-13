@@ -57,6 +57,9 @@ export class ReplayScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.events.once(Phaser.Scenes.Events.CREATE, () => {
+      (this.game.registry.get('arcadeReplayReady') as (() => void) | undefined)?.();
+    });
     const data = this.game.registry.get('replay') as { seed: number; trace: Uint8Array } | undefined;
     if (!data) throw new Error('ReplayScene: missing replay data in registry');
 
@@ -156,6 +159,9 @@ export class ReplayScene extends Phaser.Scene {
     this.cpuRenderer?.destroy();
     this.hud?.destroy();
     this.effects?.destroy();
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __engine?: unknown }).__engine = undefined;
+    }
   }
 }
 

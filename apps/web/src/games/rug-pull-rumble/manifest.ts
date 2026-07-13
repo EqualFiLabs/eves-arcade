@@ -14,8 +14,9 @@ export const rugPullRumbleManifest: ArcadeGameManifest = {
   title: 'Rug Pull Rumble',
   tagline: 'Sminem vs Bogdanoff — proof of fight',
   orientation: 'landscape',
-  capabilities: { input: { keyboard: true, pointer: false, touch: true, gamepad: true }, suspension: true, replay: true },
-  localBest: { metric: 'score', order: 'desc' },
+  capabilities: { input: { keyboard: true, pointer: false, touch: true, gamepad: true }, suspension: true },
+  localBest: { metric: 'score', label: 'Personal Best', order: 'desc' },
+  replay: { load: () => import('./replay-adapter').then((module) => module.rprReplayAdapter) },
   sessionLengthSec: [30, 180],
   leaderboards: [
     {

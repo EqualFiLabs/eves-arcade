@@ -56,8 +56,8 @@ shims should be temporary and should have an explicit removal phase.
 | 1 | Repair the ranked vertical slice | COMPLETE | Phase 0 |
 | 2 | Make each game core the source of truth | COMPLETE | Phase 1 |
 | 3 | Redesign the platform contracts and capabilities | COMPLETE | Phase 2 |
-| 4 | Harden the shell lifecycle | NOT STARTED | Phase 3 |
-| 5 | Make shared web surfaces game-neutral | NOT STARTED | Phase 3 |
+| 4 | Harden the shell lifecycle | COMPLETE | Phase 3 |
+| 5 | Make shared web surfaces game-neutral | COMPLETE | Phase 3 |
 | 6 | Introduce explicit canonical input and trace schemas | NOT STARTED | Phases 2–3 |
 | 7 | Generalize and harden the verification backend | NOT STARTED | Phases 2, 3, 6 |
 | 8 | Enforce architecture and prove multi-format support | NOT STARTED | Phases 4–7 |
@@ -734,15 +734,17 @@ results, sharing, and replay entry points.
 
 ## Work Log
 
-Status: `NOT STARTED`
+Status: `COMPLETE`
 
-Planning document:
+Planning document: `phases/phase-5-game-neutral-web-surfaces.md`
 
-Implementation notes:
+Implementation notes: See the phase document implementation log.
 
-Verification evidence:
+Verification evidence: Typecheck, lint, 226 unit/integration tests, production
+build, and all 20 browser tests pass. See the phase document for details.
 
-Deferred items:
+Deferred items: Trace schemas remain Phase 6; verifier generalization remains
+Phase 7; broader multi-format enforcement remains Phase 8.
 
 ---
 

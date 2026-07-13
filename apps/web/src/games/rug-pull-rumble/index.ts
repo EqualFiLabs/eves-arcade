@@ -1,4 +1,6 @@
 import * as Phaser from 'phaser';
+import { gameCopy } from '@rpr/content';
+import { RPR_CONTRACT } from '@rpr/rug-pull-rumble-core/identity';
 import type {
   ArcadeGameContext,
   ArcadeGameHandle,
@@ -44,18 +46,24 @@ export const rugPullRumbleModule: ArcadeGameModule = {
     const game = new Phaser.Game({
       ...createGameConfig({
         parent: ctx.mount,
+        title: gameCopy.title,
+        version: RPR_CONTRACT.game.version,
+        width: 1280,
+        height: 720,
+        backgroundColor: '#0a0a0f',
+        input: { gamepad: true },
         scene: [BootScene, UnsupportedBrowserScene, PreloadScene, MenuScene, FightScene],
-      }),
-      callbacks: {
-        // preBoot runs before the first scene, closing the registry race that
-        // exists when values are assigned after new Phaser.Game().
-        preBoot(bootingGame) {
-          bootingGame.registry.set('muted', ctx.settings.muted);
-          bootingGame.registry.set('arcade', ctx);
-          bootingGame.registry.set('arcadeReady', resolveReady);
-          bootingGame.registry.set('arcadeReadyError', rejectReady);
+        callbacks: {
+          // preBoot runs before the first scene, closing the registry race that
+          // exists when values are assigned after new Phaser.Game().
+          preBoot(bootingGame) {
+            bootingGame.registry.set('muted', ctx.settings.muted);
+            bootingGame.registry.set('arcade', ctx);
+            bootingGame.registry.set('arcadeReady', resolveReady);
+            bootingGame.registry.set('arcadeReadyError', rejectReady);
+          },
         },
-      },
+      }),
     });
 
     // Bridge shell state into the game: settings seed the registry so existing

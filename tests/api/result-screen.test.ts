@@ -60,22 +60,28 @@ describe('generic result screen', () => {
 
   it('supports scoreless and differently formatted game results', () => {
     renderResultScreen(root, {
+      gameTitle: 'Distance Test',
       result,
       presentation: {
         headline: 'Docked', tone: 'neutral',
         primaryMetric: { metric: 'distance', label: 'Distance', fractionDigits: 1, suffix: ' km' },
       },
       submissionStatus: { kind: 'unranked' },
-      localBest: 0,
+      localBest: {
+        value: 12.34,
+        presentation: { metric: 'distance', label: 'Longest Flight', fractionDigits: 1, suffix: ' km' },
+      },
       onPlayAgain() {},
       onBack() {},
     });
     expect(root.querySelector('.arcade-result-score')?.textContent).toBe('Distance 14.3 km');
+    expect(root.querySelector('.arcade-result-best')?.textContent).toBe('Longest Flight: 12.3 km');
     expect(root.textContent).not.toContain('Damage');
   });
 
   it('treats game copy as text and omits unsafe URLs', () => {
     renderResultScreen(root, {
+      gameTitle: 'Unsafe Copy Test',
       result,
       presentation: {
         headline: '<img src=x onerror=alert(1)>',
@@ -84,7 +90,6 @@ describe('generic result screen', () => {
         links: [{ label: 'bad', url: 'data:text/html,bad' }, { label: 'safe', url: '/safe' }],
       },
       submissionStatus: { kind: 'unranked' },
-      localBest: 0,
       onPlayAgain() {},
       onBack() {},
     });
@@ -107,10 +112,11 @@ describe('generic result screen', () => {
 
   function render(submissionStatus: Parameters<typeof renderResultScreen>[1]['submissionStatus']) {
     return renderResultScreen(root, {
+      gameTitle: 'Rug Pull Rumble',
       result,
       presentation,
       submissionStatus,
-      localBest: 0,
+      localBest: { value: 0, presentation: { metric: 'score', label: 'Personal Best' } },
       onPlayAgain() {},
       onBack() {},
     });

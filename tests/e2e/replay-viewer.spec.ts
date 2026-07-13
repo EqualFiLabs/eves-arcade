@@ -19,20 +19,42 @@ function minimalTraceBase64(): string {
   return bytes.toString('base64');
 }
 
+function replayEnvelope(): string {
+  return JSON.stringify({
+    game: { id: 'rug-pull-rumble', version: '0.1.0' },
+    seed: 42,
+    evidence: {
+      kind: 'input-trace',
+      schema: { id: 'rpr.input', version: 1 },
+      encodingVersion: 1,
+      data: minimalTraceBase64(),
+    },
+  });
+}
+
 test('replay viewer paste form loads on #replay', async ({ page }) => {
   await page.goto('/#replay');
   await expect(page.locator('.arcade-replay-form')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('.replay-load')).toBeVisible();
-  await expect(page.locator('.replay-seed')).toBeVisible();
-  await expect(page.locator('.replay-trace')).toBeVisible();
+  await expect(page.locator('.replay-envelope')).toBeVisible();
+  await expect(page.locator('#replay-title')).toBeFocused();
+});
+
+test('rejects unknown games and keeps focus at the invalid envelope', async ({ page }) => {
+  await page.goto('/#replay');
+  const envelope = JSON.parse(replayEnvelope()) as { game: { id: string } };
+  envelope.game.id = 'missing-game';
+  await page.locator('.replay-envelope').fill(JSON.stringify(envelope));
+  await page.locator('.replay-load').click();
+  await expect(page.locator('.replay-error')).toContainText('Unknown game/version');
+  await expect(page.locator('.replay-envelope')).toBeFocused();
 });
 
 test('loading a trace creates a canvas and playback advances the frame counter', async ({ page }) => {
   await page.goto('/#replay');
   await expect(page.locator('.arcade-replay-form')).toBeVisible({ timeout: 10_000 });
 
-  await page.locator('.replay-seed').fill('42');
-  await page.locator('.replay-trace').fill(minimalTraceBase64());
+  await page.locator('.replay-envelope').fill(replayEnvelope());
   await page.locator('.replay-load').click();
 
   // The replay shell with a canvas appears.
@@ -63,8 +85,7 @@ test('pause button stops playback and step advances one frame', async ({ page })
   await page.goto('/#replay');
   await expect(page.locator('.arcade-replay-form')).toBeVisible({ timeout: 10_000 });
 
-  await page.locator('.replay-seed').fill('42');
-  await page.locator('.replay-trace').fill(minimalTraceBase64());
+  await page.locator('.replay-envelope').fill(replayEnvelope());
   await page.locator('.replay-load').click();
   await expect(page.locator('canvas')).toBeVisible({ timeout: 10_000 });
 
@@ -85,8 +106,7 @@ test('speed buttons switch the active speed', async ({ page }) => {
   await page.goto('/#replay');
   await expect(page.locator('.arcade-replay-form')).toBeVisible({ timeout: 10_000 });
 
-  await page.locator('.replay-seed').fill('42');
-  await page.locator('.replay-trace').fill(minimalTraceBase64());
+  await page.locator('.replay-envelope').fill(replayEnvelope());
   await page.locator('.replay-load').click();
   await expect(page.locator('canvas')).toBeVisible({ timeout: 10_000 });
 

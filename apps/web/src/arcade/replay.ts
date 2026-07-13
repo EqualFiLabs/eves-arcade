@@ -1,185 +1,312 @@
-/**
- * Dev-only replay viewer (Req 10.5, 14.2).
- *
- * Accessible via `#replay` hash in development mode. Shows a paste form where
- * a developer pastes a seed + base64-encoded input trace (from a stored
- * submission or a local recording). The viewer launches a Phaser instance with
- * {@link ReplayScene}, which reuses the exact same RPR renderers as a live fight.
- *
- * Playback controls (play/pause, speed, frame-step) live in a DOM bar above the
- * canvas and communicate with the scene via the Phaser registry.
- *
- * No new rendering code — every visual is identical to a live fight (Req 14.2).
- */
+import type {
+  AnalyticsHook,
+  ArcadeGameManifest,
+  ArcadeReplayHandle,
+  DecodedReplayEnvelope,
+  ReplaySpeed,
+} from './types';
+import { consoleAnalytics } from './analytics';
+
+const PROGRESS_INTERVAL_MS = 100;
+const SPEEDS: readonly ReplaySpeed[] = [0.5, 1, 2, 4];
 
 export interface ReplayViewer {
-  destroy(): void;
+  destroy(): Promise<void>;
 }
 
-/** Shows the replay viewer paste form. Call when `#replay` is detected (dev only). */
-export function showReplayViewer(root: HTMLElement): ReplayViewer {
-  const viewer = new ReplayViewerImpl(root);
-  viewer.renderForm();
+export interface ReplayViewerOptions {
+  registry: readonly ArcadeGameManifest[];
+  analytics?: AnalyticsHook;
+  onBack(): void;
+}
+
+/** Development-only, game-neutral replay shell. */
+export function showReplayViewer(root: HTMLElement, options: ReplayViewerOptions): ReplayViewer {
+  const viewer = new ReplayViewerImpl(root, options);
+  viewer.start();
   return viewer;
 }
 
-class ReplayViewerImpl {
-  private game: { destroy(destroyCanvas?: boolean): void } | null = null;
-  private pollTimer: ReturnType<typeof setInterval> | null = null;
+class ReplayViewerImpl implements ReplayViewer {
+  private readonly analytics: AnalyticsHook;
+  private operationId = 0;
+  private controller: AbortController | null = null;
+  private handle: ArcadeReplayHandle | null = null;
+  private progressTimer: ReturnType<typeof setInterval> | null = null;
+  private destroyPromise: Promise<void> | null = null;
 
-  constructor(private readonly root: HTMLElement) {}
+  constructor(
+    private readonly root: HTMLElement,
+    private readonly options: ReplayViewerOptions,
+  ) {
+    this.analytics = options.analytics ?? consoleAnalytics;
+  }
 
-  // ── Paste form ────────────────────────────────────────────────────────────
+  start(): void {
+    this.renderForm();
+  }
 
-  renderForm(): void {
+  destroy(): Promise<void> {
+    if (this.destroyPromise) return this.destroyPromise;
+    this.destroyPromise = (async () => {
+      this.operationId += 1;
+      this.controller?.abort(new DOMException('Replay viewer destroyed', 'AbortError'));
+      this.controller = null;
+      this.stopProgressPolling();
+      const handle = this.handle;
+      this.handle = null;
+      if (handle) await handle.destroy();
+      this.root.replaceChildren();
+    })();
+    return this.destroyPromise;
+  }
+
+  private renderForm(error?: string): void {
     this.root.innerHTML = `
-      <section class="arcade-replay-form">
-        <h1>Replay Viewer <span class="arcade-dev-badge">DEV</span></h1>
-        <p>Paste a seed and base64-encoded trace to replay a recorded session.</p>
-        <label>Seed <input class="replay-seed" type="number" placeholder="e.g. 12345" /></label>
-        <label>Trace (base64) <textarea class="replay-trace" rows="8" placeholder="Paste base64 trace here…"></textarea></label>
+      <section class="arcade-replay-form arcade-scroll-surface" aria-labelledby="replay-title">
+        <h1 id="replay-title" tabindex="-1">Replay Viewer <span class="arcade-dev-badge">DEV</span></h1>
+        <p>Paste a replay envelope containing exact game, schema, seed, and trace metadata.</p>
+        <label for="replay-envelope">Replay envelope (JSON)</label>
+        <textarea id="replay-envelope" class="replay-envelope" rows="12" spellcheck="false"
+          placeholder='{"game":{"id":"rug-pull-rumble","version":"0.1.0"},"seed":42,"evidence":{"kind":"input-trace","schema":{"id":"rpr.input","version":1},"encodingVersion":1,"data":"..."}}'></textarea>
         <div class="replay-form-actions">
           <button class="replay-load" type="button">Load Replay</button>
-          <a class="replay-back-link" href="#/">← Back to Arcade</a>
+          <button class="replay-back-link" type="button">← Back to Arcade</button>
         </div>
-        <p class="replay-error" hidden></p>
-      </section>
-    `;
+        <p class="replay-error" role="alert" ${error ? '' : 'hidden'}>${escapeHtml(error ?? '')}</p>
+      </section>`;
 
-    this.root.querySelector<HTMLButtonElement>('.replay-load')!.addEventListener('click', () => {
-      void this.loadAndPlay();
-    });
+    this.root.querySelector<HTMLButtonElement>('.replay-load')!
+      .addEventListener('click', () => void this.loadAndPlay());
+    this.root.querySelector<HTMLButtonElement>('.replay-back-link')!
+      .addEventListener('click', () => void this.back());
+    if (error) this.root.querySelector<HTMLTextAreaElement>('.replay-envelope')?.focus();
+    else focusHeading(this.root);
   }
 
   private async loadAndPlay(): Promise<void> {
-    const seedInput = this.root.querySelector<HTMLInputElement>('.replay-seed')!;
-    const traceInput = this.root.querySelector<HTMLTextAreaElement>('.replay-trace')!;
-    const errorEl = this.root.querySelector<HTMLElement>('.replay-error')!;
-    errorEl.hidden = true;
+    const input = this.root.querySelector<HTMLTextAreaElement>('.replay-envelope');
+    const loadButton = this.root.querySelector<HTMLButtonElement>('.replay-load');
+    if (!input || !loadButton) return;
 
-    const seed = Number(seedInput.value);
-    if (Number.isNaN(seed)) {
-      this.showError('Invalid seed — must be a number.');
-      return;
-    }
-
-    let trace: Uint8Array;
+    let replay: DecodedReplayEnvelope;
+    let manifest: ArcadeGameManifest;
     try {
-      trace = base64ToBytes(traceInput.value.trim());
-    } catch {
-      this.showError('Invalid base64 trace.');
+      replay = parseReplayEnvelope(input.value);
+      manifest = resolveReplayManifest(this.options.registry, replay);
+    } catch (error) {
+      this.showFormError(error);
       return;
     }
 
-    if (trace.length < 7) {
-      this.showError('Trace too short — expected at least 7 bytes (header).');
-      return;
+    loadButton.disabled = true;
+    loadButton.textContent = 'Loading…';
+    this.root.querySelector<HTMLElement>('.arcade-replay-form')?.setAttribute('aria-busy', 'true');
+    const id = ++this.operationId;
+    const controller = new AbortController();
+    this.controller = controller;
+
+    try {
+      const adapter = await manifest.replay!.load();
+      if (!this.owns(id, controller)) return;
+      const mount = this.renderPlayer(manifest.title);
+      const handle = adapter.launch({
+        mount,
+        replay,
+        signal: controller.signal,
+        analytics: this.analytics,
+      });
+      this.handle = handle;
+      this.wireControls(handle);
+      await handle.ready;
+      if (!this.owns(id, controller) || this.handle !== handle) return;
+      this.startProgressPolling(handle);
+      this.analytics.track('arcade_replay_started', {
+        gameId: replay.game.id,
+        gameVersion: replay.game.version,
+      });
+    } catch (error) {
+      if (!this.owns(id, controller) || isAbortError(error)) return;
+      const handle = this.handle;
+      this.handle = null;
+      if (handle) await handle.destroy();
+      if (!this.owns(id, controller)) return;
+      this.controller = null;
+      this.renderForm(errorMessage(error));
     }
-
-    await this.launch(seed, trace);
   }
 
-  private showError(msg: string): void {
-    const el = this.root.querySelector<HTMLElement>('.replay-error')!;
-    el.textContent = msg;
-    el.hidden = false;
-  }
-
-  // ── Phaser launch + playback controls ─────────────────────────────────────
-
-  private async launch(seed: number, trace: Uint8Array): Promise<void> {
-    // Dynamic imports so the replay viewer (and Phaser) are code-split out of
-    // the shell payload in production — even though the viewer is dev-only.
-    const Phaser = await import('phaser');
-    const { createGameConfig } = await import('./phaser/config-factory');
-    const { ReplayScene } = await import('../games/rug-pull-rumble/scenes/ReplayScene');
-
+  private renderPlayer(title: string): HTMLElement {
     this.root.innerHTML = `
-      <div class="arcade-replay-shell">
-        <header class="arcade-replay-controls">
-          <button class="replay-toggle" type="button">⏸ Pause</button>
+      <section class="arcade-replay-shell" aria-label="${escapeHtml(title)} replay">
+        <header class="arcade-replay-controls" aria-label="Replay controls">
+          <button class="replay-toggle" type="button" aria-pressed="false">⏸ Pause</button>
           <button class="replay-step" type="button">⏭ Step</button>
-          <div class="replay-speeds">
-            <button class="replay-speed" data-speed="0.5" type="button">0.5×</button>
-            <button class="replay-speed active" data-speed="1" type="button">1×</button>
-            <button class="replay-speed" data-speed="2" type="button">2×</button>
-            <button class="replay-speed" data-speed="4" type="button">4×</button>
+          <div class="replay-speeds" role="group" aria-label="Playback speed">
+            ${SPEEDS.map((speed) => `<button class="replay-speed${speed === 1 ? ' active' : ''}" data-speed="${speed}" type="button" aria-pressed="${speed === 1}">${speed}×</button>`).join('')}
           </div>
-          <span class="replay-frame-counter">Frame 0 / 0</span>
-          <a class="replay-back-link" href="#/">← Back</a>
+          <output class="replay-frame-counter" aria-label="Replay progress">Frame 0 / 0</output>
+          <button class="replay-back-link" type="button">← Back</button>
         </header>
         <div class="arcade-mount" id="replay-mount"></div>
-      </div>
-    `;
-
-    const mount = this.root.querySelector<HTMLElement>('#replay-mount')!;
-    const game = new Phaser.Game(
-      createGameConfig({
-        parent: mount,
-        scene: [ReplayScene],
-      }),
-    );
-    game.registry.set('replay', { seed, trace });
-    this.game = game;
-
-    this.wirePlaybackControls(game);
-
-    // Poll the registry for frame counter updates.
-    const counter = this.root.querySelector<HTMLElement>('.replay-frame-counter')!;
-    this.pollTimer = setInterval(() => {
-      const frame = (game.registry.get('replayFrame') as number) ?? 0;
-      const total = (game.registry.get('replayTotal') as number) ?? 0;
-      counter.textContent = `Frame ${frame} / ${total}`;
-    }, 100);
+      </section>`;
+    this.root.querySelector<HTMLButtonElement>('.replay-back-link')!
+      .addEventListener('click', () => void this.back());
+    return this.root.querySelector<HTMLElement>('#replay-mount')!;
   }
 
-  private wirePlaybackControls(game: { registry: { get(key: string): unknown; set(key: string, val: unknown): void } }): void {
-    const toggleBtn = this.root.querySelector<HTMLButtonElement>('.replay-toggle')!;
-    toggleBtn.addEventListener('click', () => {
-      const playing = game.registry.get('replayPlaying') !== false;
-      game.registry.set('replayPlaying', !playing);
-      toggleBtn.textContent = playing ? '▶ Play' : '⏸ Pause';
-    });
-
-    this.root.querySelector<HTMLButtonElement>('.replay-step')!.addEventListener('click', () => {
-      game.registry.set('replayStep', true);
-      // Ensure we're paused so the step is single-frame.
-      if (game.registry.get('replayPlaying') !== false) {
-        game.registry.set('replayPlaying', false);
-        toggleBtn.textContent = '▶ Play';
+  private wireControls(handle: ArcadeReplayHandle): void {
+    const toggle = this.root.querySelector<HTMLButtonElement>('.replay-toggle')!;
+    toggle.addEventListener('click', () => {
+      if (handle.progress.playing) {
+        handle.pause();
+        toggle.textContent = '▶ Play';
+        toggle.setAttribute('aria-pressed', 'true');
+      } else {
+        handle.play();
+        toggle.textContent = '⏸ Pause';
+        toggle.setAttribute('aria-pressed', 'false');
       }
     });
-
-    const speedBtns = this.root.querySelectorAll<HTMLButtonElement>('.replay-speed');
-    speedBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        speedBtns.forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
-        game.registry.set('replaySpeed', Number(btn.dataset.speed));
-      });
+    this.root.querySelector<HTMLButtonElement>('.replay-step')!.addEventListener('click', () => {
+      handle.step();
+      toggle.textContent = '▶ Play';
+      toggle.setAttribute('aria-pressed', 'true');
     });
+    const speedButtons = [...this.root.querySelectorAll<HTMLButtonElement>('.replay-speed')];
+    for (const button of speedButtons) {
+      button.addEventListener('click', () => {
+        const speed = Number(button.dataset.speed) as ReplaySpeed;
+        handle.setSpeed(speed);
+        for (const candidate of speedButtons) {
+          const active = candidate === button;
+          candidate.classList.toggle('active', active);
+          candidate.setAttribute('aria-pressed', String(active));
+        }
+      });
+    }
   }
 
-  // ── Teardown ──────────────────────────────────────────────────────────────
+  private startProgressPolling(handle: ArcadeReplayHandle): void {
+    this.stopProgressPolling();
+    const counter = this.root.querySelector<HTMLOutputElement>('.replay-frame-counter');
+    if (!counter) return;
+    const update = (): void => {
+      const progress = handle.progress;
+      counter.value = `Frame ${progress.frame} / ${progress.totalFrames}`;
+    };
+    update();
+    this.progressTimer = setInterval(update, PROGRESS_INTERVAL_MS);
+  }
 
-  destroy(): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
-    if (this.game) {
-      try { this.game.destroy(true); } catch { /* ignore */ }
-      this.game = null;
-    }
-    this.root.innerHTML = '';
+  private stopProgressPolling(): void {
+    if (this.progressTimer !== null) clearInterval(this.progressTimer);
+    this.progressTimer = null;
+  }
+
+  private async back(): Promise<void> {
+    await this.destroy();
+    this.options.onBack();
+  }
+
+  private showFormError(error: unknown): void {
+    const element = this.root.querySelector<HTMLElement>('.replay-error');
+    if (!element) return;
+    element.textContent = errorMessage(error);
+    element.hidden = false;
+    this.root.querySelector<HTMLTextAreaElement>('.replay-envelope')?.focus();
+  }
+
+  private owns(id: number, controller: AbortController): boolean {
+    return id === this.operationId && this.controller === controller && !controller.signal.aborted;
   }
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+export function parseReplayEnvelope(value: string): DecodedReplayEnvelope {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error('Replay envelope must be valid JSON.');
+  }
+  if (!isRecord(parsed) || !isRecord(parsed.game) || !isRecord(parsed.evidence)) {
+    throw new Error('Replay envelope is missing game or evidence metadata.');
+  }
+  const evidence = parsed.evidence;
+  if (typeof parsed.game.id !== 'string' || !parsed.game.id
+    || typeof parsed.game.version !== 'string' || !parsed.game.version) {
+    throw new Error('Replay game identity is invalid.');
+  }
+  if (!Number.isSafeInteger(parsed.seed) || (parsed.seed as number) < 0) {
+    throw new Error('Replay seed must be a non-negative safe integer.');
+  }
+  if (evidence.kind !== 'input-trace' || !isRecord(evidence.schema)
+    || typeof evidence.schema.id !== 'string' || !evidence.schema.id
+    || !Number.isSafeInteger(evidence.schema.version) || (evidence.schema.version as number) < 0
+    || !Number.isSafeInteger(evidence.encodingVersion) || (evidence.encodingVersion as number) < 0
+    || typeof evidence.data !== 'string') {
+    throw new Error('Replay input-trace metadata is invalid.');
+  }
+  return {
+    game: { id: parsed.game.id, version: parsed.game.version },
+    seed: parsed.seed as number,
+    evidence: {
+      kind: 'input-trace',
+      schema: { id: evidence.schema.id, version: evidence.schema.version as number },
+      encodingVersion: evidence.encodingVersion as number,
+      bytes: decodeBase64(evidence.data),
+    },
+  };
+}
 
-function base64ToBytes(b64: string): Uint8Array {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+function resolveReplayManifest(
+  registry: readonly ArcadeGameManifest[],
+  replay: DecodedReplayEnvelope,
+): ArcadeGameManifest {
+  const manifest = registry.find((candidate) =>
+    candidate.contract.game.id === replay.game.id
+    && candidate.contract.game.version === replay.game.version);
+  if (!manifest) throw new Error(`Unknown game/version: ${replay.game.id}@${replay.game.version}`);
+  if (!manifest.replay) throw new Error(`${manifest.title} does not provide replay playback.`);
+  const verification = manifest.contract.verification;
+  if (verification.kind !== 'input-trace') {
+    throw new Error(`${manifest.title} does not use input-trace replay evidence.`);
+  }
+  if (verification.schema.id !== replay.evidence.schema.id
+    || verification.schema.version !== replay.evidence.schema.version
+    || verification.encodingVersion !== replay.evidence.encodingVersion) {
+    throw new Error('Replay schema or encoding version does not match the registered game.');
+  }
+  return manifest;
+}
+
+function decodeBase64(value: string): Uint8Array {
+  if (!value || value.length % 4 !== 0
+    || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)) {
+    throw new Error('Replay trace must be valid base64.');
+  }
+  const binary = atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function focusHeading(root: HTMLElement): void {
+  root.querySelector<HTMLElement>('h1, h2')?.focus();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === 'AbortError';
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[character]!);
 }

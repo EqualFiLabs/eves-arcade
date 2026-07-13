@@ -1,52 +1,55 @@
 import * as Phaser from 'phaser';
-import { gameCopy } from '@rpr/content';
-
-/** Base game resolution. Phaser Scale.FIT letterboxes to preserve this aspect ratio. */
-export const GAME_WIDTH = 1280;
-export const GAME_HEIGHT = 720;
 
 /**
- * Per-game Phaser-config overrides. Games supply their scene list (and any
- * game-specific config) here; common options come from the factory.
+ * Curated per-game Phaser configuration. It deliberately exposes Phaser's
+ * native subsystem configs without attempting to abstract physics or input.
+ * Dimensions live only under `scale` in the resulting GameConfig.
  */
-export interface GameConfigOverrides {
-  /** Mount element the Phaser canvas is created inside. */
+export interface PhaserGameConfigOptions {
   parent: HTMLElement | string;
-  /** The game's scene classes, in run order (the same shape Phaser's GameConfig expects). */
+  title: string;
+  width: number | string;
+  height: number | string;
+  backgroundColor: string | number;
   scene: Phaser.Types.Core.GameConfig['scene'];
-  /** Desired background color. */
-  backgroundColor?: string;
-  /** Base design width/height for Scale.FIT. */
-  width?: number;
-  height?: number;
+  renderer?: Phaser.Types.Core.GameConfig['type'];
+  render?: Phaser.Types.Core.GameConfig['render'];
+  scale?: Omit<Phaser.Types.Core.ScaleConfig, 'parent' | 'width' | 'height'>;
+  physics?: Phaser.Types.Core.GameConfig['physics'];
+  input?: Phaser.Types.Core.GameConfig['input'];
+  callbacks?: Phaser.Types.Core.GameConfig['callbacks'];
+  banner?: Phaser.Types.Core.GameConfig['banner'];
+  url?: string;
+  version?: string;
 }
 
 /**
- * Builds a Phaser 4 GameConfig covering the shared options (renderer, scale,
- * banner, input) merged with per-game overrides (parent, scene list).
- *
- * Fighter movement and combat advance on the sim's fixed step (SIM_FPS = 60),
- * NOT via Phaser physics — no physics config is registered (Req 15.3). Each
- * launched game owns the instance this produces (Req 3.1).
+ * Builds a Phaser 4 GameConfig from the curated game-owned options. The factory
+ * supplies only neutral browser defaults; it does not decide whether a game's
+ * presentation uses a Phaser physics system. RPR deliberately omits physics
+ * because its deterministic combat core owns movement and collision.
  */
-export function createGameConfig(overrides: GameConfigOverrides): Phaser.Types.Core.GameConfig {
+export function createGameConfig(options: PhaserGameConfigOptions): Phaser.Types.Core.GameConfig {
   return {
-    type: Phaser.AUTO,
-    parent: overrides.parent,
-    backgroundColor: overrides.backgroundColor ?? '#0a0a0f',
-    title: gameCopy.title,
-    url: 'https://github.com/anomalyco/opencode',
-    banner: false,
+    type: options.renderer ?? Phaser.AUTO,
+    backgroundColor: options.backgroundColor,
+    title: options.title,
+    ...(options.url ? { url: options.url } : {}),
+    ...(options.version ? { version: options.version } : {}),
+    banner: options.banner ?? false,
     disableContextMenu: true,
     scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: overrides.width ?? GAME_WIDTH,
-      height: overrides.height ?? GAME_HEIGHT,
+      mode: options.scale?.mode ?? Phaser.Scale.FIT,
+      autoCenter: options.scale?.autoCenter ?? Phaser.Scale.CENTER_BOTH,
+      ...options.scale,
+      parent: options.parent,
+      width: options.width,
+      height: options.height,
     },
-    input: {
-      gamepad: true,
-    },
-    scene: overrides.scene,
+    ...(options.render ? { render: options.render } : {}),
+    ...(options.physics ? { physics: options.physics } : {}),
+    ...(options.input !== undefined ? { input: options.input } : {}),
+    ...(options.callbacks ? { callbacks: options.callbacks } : {}),
+    scene: options.scene,
   };
 }

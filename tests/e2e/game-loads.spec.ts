@@ -25,6 +25,15 @@ test('arcade shell loads and lists Rug Pull Rumble', async ({ page }) => {
   // The shell's game-selection surface renders before any game loads (DOM, no canvas).
   await expect(page.locator('.arcade-game')).toBeVisible();
   await expect(page.locator('.arcade-game-title')).toContainText('Rug Pull Rumble');
+  await expect(page.locator('.arcade-title')).toBeFocused();
+});
+
+test('game selection is keyboard operable', async ({ page }) => {
+  await page.goto('/');
+  await page.keyboard.press('Tab');
+  await expect(page.locator('.arcade-game').first()).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('canvas')).toBeVisible({ timeout: 10_000 });
 });
 
 test('selecting a game launches its own Phaser instance into the canvas', async ({ page }) => {

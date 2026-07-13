@@ -12,19 +12,28 @@ export interface ResultScreenHandle {
 }
 
 export interface ResultScreenOptions {
+  gameTitle: string;
   result: CanonicalGameResult;
   presentation: ResultPresentation;
   submissionStatus: SubmissionStatus;
-  localBest: number;
+  localBest?: { value: number; presentation: MetricPresentation };
   onPlayAgain(): void;
   onBack(): void;
 }
 
 export function renderResultScreen(root: HTMLElement, options: ResultScreenOptions): ResultScreenHandle {
   const section = element('section', 'arcade-result');
+  section.classList.add('arcade-scroll-surface');
+  section.setAttribute('aria-labelledby', 'arcade-result-title');
   const heading = element('h2', `arcade-result-outcome arcade-${options.presentation.tone}`);
+  heading.id = 'arcade-result-title';
+  heading.tabIndex = -1;
   heading.textContent = options.presentation.headline;
   section.append(heading);
+
+  const gameTitle = element('p', 'arcade-result-game');
+  gameTitle.textContent = options.gameTitle;
+  section.append(gameTitle);
 
   if (options.presentation.summary) {
     const summary = element('p', 'arcade-result-summary');
@@ -33,17 +42,26 @@ export function renderResultScreen(root: HTMLElement, options: ResultScreenOptio
   }
 
   const canonical = element('div', 'arcade-canonical');
+  canonical.setAttribute('aria-live', 'polite');
   renderMetrics(canonical, options.result, options.presentation);
   section.append(canonical);
 
-  const badge = element('div', 'arcade-result-badge');
-  const message = element('div', 'arcade-submission-message');
-  const detail = element('div', 'arcade-submission-detail');
-  section.append(badge, message, detail);
+  const submission = element('div', 'arcade-submission-status');
+  submission.setAttribute('role', 'status');
+  submission.setAttribute('aria-live', 'polite');
+  submission.setAttribute('aria-atomic', 'true');
+  const badge = element('span', 'arcade-result-badge');
+  const message = element('p', 'arcade-submission-message');
+  const detail = element('p', 'arcade-submission-detail');
+  submission.append(badge, message, detail);
+  section.append(submission);
 
   if (options.localBest) {
     const best = element('div', 'arcade-result-best');
-    best.textContent = `Personal best: ${options.localBest}`;
+    best.textContent = `${options.localBest.presentation.label}: ${formatMetric(
+      options.localBest.value,
+      options.localBest.presentation,
+    )}`;
     section.append(best);
   }
 
@@ -62,6 +80,7 @@ export function renderResultScreen(root: HTMLElement, options: ResultScreenOptio
   actions.append(playAgain, back);
   section.append(actions);
   root.replaceChildren(section);
+  heading.focus();
 
   const updateSubmissionStatus = (status: SubmissionStatus): void => {
     badge.className = `arcade-result-badge ${badgeClass(status)}`;
@@ -127,6 +146,8 @@ function renderShare(root: HTMLElement, presentation: ResultPresentation): void 
   }
 
   const status = element('span', 'arcade-share-status');
+  status.setAttribute('role', 'status');
+  status.setAttribute('aria-live', 'polite');
   const copyText = [presentation.share.text, safeUrl].filter(Boolean).join(' ');
   const copy = button('Copy', 'arcade-share-copy', () => {
     void copyToClipboard(copyText).then((copied) => {
@@ -138,12 +159,13 @@ function renderShare(root: HTMLElement, presentation: ResultPresentation): void 
 }
 
 function renderLinks(root: HTMLElement, presentation: ResultPresentation): void {
-  const links = element('div', 'arcade-result-links arcade-hooks');
+  const links = element('nav', 'arcade-result-links');
+  links.setAttribute('aria-label', 'Related links');
   for (const item of presentation.links ?? []) {
     const safeUrl = safeWebUrl(item.url);
     if (!safeUrl) continue;
     const link = document.createElement('a');
-    link.className = 'arcade-hook';
+    link.className = 'arcade-result-link';
     link.href = safeUrl;
     link.textContent = item.label;
     link.rel = 'noopener noreferrer';
@@ -181,7 +203,7 @@ function hasMetric(result: CanonicalGameResult, metric: string): boolean {
 function safeWebUrl(value: string | undefined): string | null {
   if (!value) return null;
   try {
-    const url = new URL(value, window.location.href);
+    const url = new URL(value, document.baseURI);
     return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
   } catch {
     return null;

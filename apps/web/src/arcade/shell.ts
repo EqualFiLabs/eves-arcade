@@ -187,8 +187,8 @@ export class ArcadeShell {
 
   private renderSelection(): void {
     this.root.innerHTML = `
-      <section class="arcade-select">
-        <h1 class="arcade-title">Meme Arcade</h1>
+      <section class="arcade-select arcade-scroll-surface" aria-labelledby="arcade-title">
+        <h1 id="arcade-title" class="arcade-title" tabindex="-1">Meme Arcade</h1>
         <p class="arcade-sub">Pick a fight. Or a flight.</p>
         <ul class="arcade-list"></ul>
       </section>`;
@@ -204,6 +204,7 @@ export class ArcadeShell {
       item.append(button);
       list.append(item);
     }
+    this.root.querySelector<HTMLElement>('#arcade-title')?.focus();
   }
 
   private beginLaunch(manifest: ArcadeGameManifest): void {
@@ -291,8 +292,8 @@ export class ArcadeShell {
 
   private renderPending(operation: LaunchOperation, label: string): void {
     this.root.innerHTML = `
-      <section class="arcade-loading">
-        <p>${escapeHtml(label)}</p>
+      <section class="arcade-loading arcade-scroll-surface" aria-busy="true" aria-live="polite">
+        <h2 tabindex="-1">${escapeHtml(label)}</h2>
         <button class="arcade-cancel" type="button">← Cancel</button>
       </section>`;
     this.root.querySelector<HTMLButtonElement>('.arcade-cancel')!
@@ -301,14 +302,14 @@ export class ArcadeShell {
 
   private renderGameSurface(operation: LaunchOperation): HTMLElement {
     this.root.innerHTML = `
-      <div class="arcade-game-shell">
+      <section class="arcade-game-shell" aria-label="${escapeHtml(operation.manifest.title)}">
         <header class="arcade-chrome">
           <button class="arcade-back" type="button">← Arcade</button>
-          <span>${escapeHtml(operation.manifest.title)}</span>
+          <span class="arcade-now-playing">${escapeHtml(operation.manifest.title)}</span>
         </header>
-        <div class="arcade-rotate" hidden>↻ Rotate your device to play</div>
+        <div class="arcade-rotate" role="status" aria-live="polite" hidden>↻ Rotate your device to play</div>
         <div id="arcade-mount" class="arcade-mount"></div>
-      </div>`;
+      </section>`;
     this.root.querySelector<HTMLButtonElement>('.arcade-back')!
       .addEventListener('click', () => void this.cancelLaunch(operation));
     this.updateOrientationPrompt(operation.manifest);
@@ -351,15 +352,19 @@ export class ArcadeShell {
       storeLocalBest(operation.manifest.contract.game.id, localBest.metric, metricValue, localBest.order);
     }
 
+    const storedBest = localBest
+      ? getLocalBest(operation.manifest.contract.game.id, localBest.metric)
+      : null;
     const view = this.resultRenderer(this.root, {
+      gameTitle: operation.manifest.title,
       result: completion.result,
       presentation: completion.presentation,
       submissionStatus: operation.session?.ranking.kind === 'ticketed'
         ? { kind: 'submitting' }
         : { kind: 'unranked' },
-      localBest: localBest
-        ? getLocalBest(operation.manifest.contract.game.id, localBest.metric)
-        : 0,
+      localBest: localBest && storedBest !== null
+        ? { value: storedBest, presentation: localBest }
+        : undefined,
       onPlayAgain: () => this.beginLaunch(operation.manifest),
       onBack: () => void this.exit(),
     });
@@ -441,10 +446,10 @@ export class ArcadeShell {
 
   private renderError(manifest: ArcadeGameManifest, stage: ArcadeErrorStage, message: string): void {
     this.root.innerHTML = `
-      <section class="arcade-error">
-        <h2>Couldn’t load ${escapeHtml(manifest.title)}</h2>
+      <section class="arcade-error arcade-scroll-surface" aria-labelledby="arcade-error-title">
+        <h2 id="arcade-error-title" tabindex="-1">Couldn’t load ${escapeHtml(manifest.title)}</h2>
         <p>${escapeHtml(stage)}</p>
-        <pre>${escapeHtml(message)}</pre>
+        <pre role="alert">${escapeHtml(message)}</pre>
         <div>
           <button class="arcade-retry" type="button">Retry</button>
           <button class="arcade-error-back" type="button">← Back</button>
@@ -454,6 +459,7 @@ export class ArcadeShell {
       .addEventListener('click', () => this.beginLaunch(manifest));
     this.root.querySelector<HTMLButtonElement>('.arcade-error-back')!
       .addEventListener('click', () => void this.exit());
+    this.root.querySelector<HTMLElement>('#arcade-error-title')?.focus();
   }
 
   private async teardownLaunch(operation: LaunchOperation, reason: string): Promise<void> {

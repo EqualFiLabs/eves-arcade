@@ -387,7 +387,6 @@ function manifestFor(
     capabilities: {
       input: { keyboard: true, pointer: false, touch: false, gamepad: false },
       suspension: true,
-      replay: false,
     },
     leaderboards: [],
     load: module.load,

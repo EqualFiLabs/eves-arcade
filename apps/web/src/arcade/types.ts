@@ -1,7 +1,9 @@
 import type {
   CanonicalGameResult,
   GameContractDescriptor,
+  GameIdentity,
   LeaderboardCategory,
+  SchemaIdentity,
   SessionTicket,
 } from '@rpr/protocol';
 
@@ -89,6 +91,56 @@ export interface ArcadeGameModule {
   launch(ctx: ArcadeGameContext): ArcadeGameHandle;
 }
 
+export type ReplaySpeed = 0.5 | 1 | 2 | 4;
+
+export interface ReplayEnvelope {
+  game: GameIdentity;
+  seed: number;
+  evidence: {
+    kind: 'input-trace';
+    schema: SchemaIdentity;
+    encodingVersion: number;
+    data: string;
+  };
+}
+
+export interface DecodedReplayEnvelope extends Omit<ReplayEnvelope, 'evidence'> {
+  evidence: Omit<ReplayEnvelope['evidence'], 'data'> & { bytes: Uint8Array };
+}
+
+export interface ReplayProgress {
+  readonly frame: number;
+  readonly totalFrames: number;
+  readonly playing: boolean;
+  readonly speed: ReplaySpeed;
+}
+
+export interface ArcadeReplayContext {
+  mount: HTMLElement;
+  replay: Readonly<DecodedReplayEnvelope>;
+  signal: AbortSignal;
+  analytics: AnalyticsHook;
+}
+
+export interface ArcadeReplayHandle {
+  ready: Promise<void>;
+  readonly progress: Readonly<ReplayProgress>;
+  play(): void;
+  pause(): void;
+  step(): void;
+  setSpeed(speed: ReplaySpeed): void;
+  destroy(): Promise<void>;
+}
+
+export interface ArcadeReplayAdapter {
+  /** Launch is synchronous so the replay shell owns teardown immediately. */
+  launch(ctx: ArcadeReplayContext): ArcadeReplayHandle;
+}
+
+export interface ArcadeReplayCapability {
+  load(): Promise<ArcadeReplayAdapter>;
+}
+
 export interface ArcadeGameManifest {
   contract: GameContractDescriptor;
   title: string;
@@ -97,11 +149,11 @@ export interface ArcadeGameManifest {
   capabilities: {
     input: { keyboard: boolean; pointer: boolean; touch: boolean; gamepad: boolean };
     suspension: boolean;
-    replay: boolean;
   };
   sessionLengthSec?: [number, number];
   leaderboards: LeaderboardCategory[];
-  localBest?: { metric: string; order: 'desc' | 'asc' };
+  localBest?: MetricPresentation & { order: 'desc' | 'asc' };
+  replay?: ArcadeReplayCapability;
   lifecycle?: { readyTimeoutMs?: number };
   load(): Promise<ArcadeGameModule>;
 }
