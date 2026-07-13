@@ -33,6 +33,7 @@ export class ArcadeShell {
   private activeManifest: ArcadeGameManifest | null = null;
   private unsubscribeOrientation: (() => void) | null = null;
   private orientationTimer: ReturnType<typeof setInterval> | null = null;
+  private resultViewEpoch = 0;
 
   constructor(
     private readonly root: HTMLElement,
@@ -109,7 +110,14 @@ export class ArcadeShell {
     this.root.querySelector<HTMLElement>('.arcade-now-playing')!.textContent = manifest.title;
 
     const mount = this.root.querySelector<HTMLElement>('#arcade-mount')!;
-    const session = await fetchSession(manifest.id);
+    let session: GameSession;
+    try {
+      session = await fetchSession(manifest.id, manifest.version, __BUILD_VERSION__);
+    } catch (err) {
+      this.renderError(manifest, err);
+      return;
+    }
+    if (!this.activeManifest || this.activeManifest.id !== manifest.id) return;
     const ctx: ArcadeGameContext = {
       parent: mount,
       session,
@@ -159,31 +167,55 @@ export class ArcadeShell {
       ranked: session.ranked,
     });
 
-    // Submit ranked results for verification; store local best for unranked.
+    const epoch = ++this.resultViewEpoch;
+    if (!session.ranked || !session.ticket) {
+      storeLocalBest(manifest.id, result.score);
+    }
+
+    const view = renderResultScreen(this.root, {
+      result,
+      manifest,
+      submissionStatus: session.ranked && session.ticket
+        ? { kind: 'submitting' }
+        : { kind: 'unranked' },
+      localBest: getLocalBest(manifest.id),
+      onPlayAgain: () => {
+        this.resultViewEpoch++;
+        void this.launch(manifest);
+      },
+      onBack: () => {
+        this.resultViewEpoch++;
+        this.renderSelection();
+      },
+    });
+
     if (session.ranked && session.ticket) {
       void submitResult(result, packedTrace, session.ticket).then((res) => {
+        if (epoch !== this.resultViewEpoch) return;
         if (res?.accepted) {
           this.analytics.track('result_accepted', {
             gameId: manifest.id,
             score: res.canonicalScore,
             placement: res.placement,
           });
+          view.updateSubmissionStatus({
+            kind: 'verified',
+            canonicalScore: res.canonicalScore,
+            placement: res.placement,
+            totalEntries: res.totalEntries,
+          });
         } else if (res && !res.accepted) {
           this.analytics.track('result_rejected', { gameId: manifest.id, reason: res.reason });
+          view.updateSubmissionStatus({ kind: 'rejected', reason: res.reason });
+        } else {
+          storeLocalBest(manifest.id, result.score);
+          view.updateSubmissionStatus({
+            kind: 'submission-failed',
+            message: 'The verification service could not be reached.',
+          });
         }
       });
-    } else {
-      storeLocalBest(manifest.id, result.score);
     }
-
-    renderResultScreen(this.root, {
-      result,
-      manifest,
-      ranked: session.ranked,
-      localBest: getLocalBest(manifest.id),
-      onPlayAgain: () => { void this.launch(manifest); },
-      onBack: () => this.renderSelection(),
-    });
   }
 
   /** Tears down the Phaser instance + orientation watchers. Does NOT clear activeManifest. */

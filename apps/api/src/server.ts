@@ -1,20 +1,23 @@
-/**
- * Hono app factory (Req 9.1–9.4, 10.1–10.2).
- *
- * Creates the HTTP app with all routes wired. Exposed as a factory so tests
- * can call `app.request('/path')` without starting a server.
- */
+/** Hono API for ranked sessions, canonical replay verification, and leaderboards. */
 import { Hono, type Context } from 'hono';
 import type { ApiConfig } from './config';
 import { Store } from './store';
 import { signTicket, verifyTicketSig, newSessionId } from './crypto';
-import { verifyRpr } from './verify/rpr';
-import type {
-  SessionResponse,
-  SubmissionResponse,
-  LeaderboardResponse,
-  ScoreSubmission,
+import { verifyRpr, type VerifyResult } from './verify/rpr';
+import {
+  TRACE_ENCODING_VERSION,
+  sha256HexBytes,
+  unpackTrace,
+  type LeaderboardResponse,
+  type SessionResponse,
+  type SubmissionResponse,
 } from '@rpr/protocol';
+import {
+  RequestValidationError,
+  decodeBase64Strict,
+  parseScoreSubmission,
+  parseSessionRequest,
+} from './validation';
 
 export interface AppDeps {
   config: ApiConfig;
@@ -25,227 +28,241 @@ export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
   const { config, store } = deps;
 
-  // Simple per-IP rate limiting for session requests (Req 9.6).
   const requestTimestamps = new Map<string, number[]>();
   function rateLimited(ip: string): boolean {
     const now = Date.now();
     const window = 60_000;
-    const recent = (requestTimestamps.get(ip) ?? []).filter((t) => now - t < window);
+    const recent = (requestTimestamps.get(ip) ?? []).filter((time) => now - time < window);
     recent.push(now);
     requestTimestamps.set(ip, recent);
     return recent.length > config.rateLimitPerMin;
   }
 
-  // ── Health ────────────────────────────────────────────────────────────────
-
   app.get('/health', (c) => c.json({ ok: true }));
-
-  // ── POST /sessions ────────────────────────────────────────────────────────
 
   app.post('/sessions', async (c) => {
     const ip = c.req.header('x-forwarded-for') ?? c.req.header('x-real-ip') ?? 'unknown';
-    if (rateLimited(ip)) {
-      return c.json({ error: 'Rate limit exceeded' }, 429);
-    }
+    if (rateLimited(ip)) return c.json({ error: 'Rate limit exceeded' }, 429);
 
-    let body: { gameId?: string };
+    let request;
     try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: 'Invalid JSON' }, 400);
+      request = parseSessionRequest(await c.req.json());
+    } catch (error) {
+      return invalidRequest(c, error);
     }
 
-    const gameId = body.gameId;
-    if (!gameId) {
-      return c.json({ error: 'Missing gameId' }, 400);
+    const supportedBuilds = config.supportedGameBuilds[request.gameId]?.[request.gameVersion];
+    if (!supportedBuilds) {
+      return c.json({ error: `Unsupported game version: ${request.gameId}@${request.gameVersion}` }, 400);
+    }
+    if (!supportedBuilds.includes(request.buildVersion)) {
+      return c.json({ error: `Unsupported build: ${request.buildVersion}` }, 400);
     }
 
-    const knownVersions = config.knownGameVersions[gameId];
-    if (!knownVersions || knownVersions.length === 0) {
-      return c.json({ error: `Unknown game: ${gameId}` }, 400);
-    }
-
-    const gameVersion = knownVersions[knownVersions.length - 1]!;
     const now = Date.now();
-    const seed = Math.floor(Math.random() * 0x7fffffff);
-    const sessionId = newSessionId();
-
     const ticket = signTicket({
-      sessionId,
-      gameId,
-      gameVersion,
-      seed,
+      sessionId: newSessionId(),
+      gameId: request.gameId,
+      gameVersion: request.gameVersion,
+      buildVersion: request.buildVersion,
+      seed: Math.floor(Math.random() * 0x7fffffff),
       issuedAt: now,
       expiresAt: now + config.ticketTtlMs,
     }, config.ticketSecret);
 
     store.saveTicket(ticket);
-
-    const res: SessionResponse = { ticket };
-    return c.json(res, 201);
+    const response: SessionResponse = { ticket };
+    return c.json(response, 201);
   });
 
-  // ── POST /results ─────────────────────────────────────────────────────────
-
   app.post('/results', async (c) => {
-    let body: ScoreSubmission;
+    let submission;
     try {
-      body = await c.req.json();
-    } catch {
-      return c.json({ error: 'Invalid JSON' }, 400);
+      submission = parseScoreSubmission(await c.req.json());
+    } catch (error) {
+      return invalidRequest(c, error);
     }
 
-    const { ticket, inputTrace, traceEncodingVersion, claimedResult, playerHandle } = body;
-
-    // 1. Validate ticket signature (Req 9.3).
+    const { ticket, claimedResult } = submission;
     if (!verifyTicketSig(ticket, config.ticketSecret)) {
       return reject(c, 'Invalid ticket signature', false);
     }
+    if (Date.now() > ticket.expiresAt) return reject(c, 'Ticket expired', false);
 
-    // 2. Check expiry.
-    if (Date.now() > ticket.expiresAt) {
-      return reject(c, 'Ticket expired', false);
+    const supportedBuilds = config.supportedGameBuilds[ticket.gameId]?.[ticket.gameVersion];
+    if (!supportedBuilds?.includes(ticket.buildVersion)) {
+      return reject(c, 'Unsupported ticket game, version, or build', true);
     }
 
-    // 3. Check game/version match.
-    if (ticket.gameId !== claimedResult.gameId) {
-      return reject(c, 'Game ID mismatch', true);
-    }
-    if (ticket.gameVersion !== claimedResult.gameVersion) {
-      return reject(c, 'Game version mismatch', true);
+    const identityError = resultIdentityError(ticket, claimedResult);
+    if (identityError) return reject(c, identityError, true);
+
+    const storedTicket = store.getTicket(ticket.sessionId);
+    if (!storedTicket) return reject(c, 'Ticket unknown', false);
+
+    if (submission.traceEncodingVersion !== TRACE_ENCODING_VERSION) {
+      return reject(c, 'Unsupported trace encoding version', false);
     }
 
-    // 4. Single-use: consume the ticket (Req 9.4, Property 5).
-    const consumed = store.consumeTicket(ticket.sessionId);
-    if (!consumed) {
-      return reject(c, 'Ticket already used or unknown', false);
-    }
-
-    // 5. Decode the trace.
-    const traceBytes = base64ToBytes(inputTrace);
-    if (!traceBytes) {
-      return reject(c, 'Invalid trace encoding', false);
-    }
-
-    // 6. Plausibility checks (Req 10.4).
+    let traceBytes: Uint8Array;
     const maxFrames = Math.ceil(config.ticketTtlMs / SIM_STEP_MS);
-    const claimedFrames = claimedResult.stats.frames ?? 0;
-    if (claimedFrames > maxFrames) {
+    try {
+      traceBytes = decodeBase64Strict(submission.inputTrace);
+      const decoded = unpackTrace(traceBytes, { maxFrames, maxButtons: 13, maxAxes: 0 });
+      if (decoded.version !== submission.traceEncodingVersion) {
+        return reject(c, 'Trace version does not match its envelope', false);
+      }
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Invalid trace';
+      return reject(c, reason, false);
+    }
+
+    const inputTraceHash = await sha256HexBytes(traceBytes);
+    if (inputTraceHash !== claimedResult.inputTraceHash) {
+      return reject(c, 'Input trace hash mismatch', true);
+    }
+
+    const claimedFrames = claimedResult.stats.frames;
+    if (typeof claimedFrames !== 'number'
+      || !Number.isSafeInteger(claimedFrames)
+      || claimedFrames < 0
+      || claimedFrames > maxFrames) {
       return reject(c, 'Frame count exceeds session bounds', true);
     }
-    const expectedDurationMs = Math.round(claimedFrames * SIM_STEP_MS);
-    if (Math.abs(claimedResult.durationMs - expectedDurationMs) > SIM_STEP_MS * 2) {
-      return reject(c, 'Duration / frame count mismatch', true);
-    }
 
-    // 7. Replay verification (Req 10.1–10.3).
+    // Structural validation is complete. From this point a replay attempt uses
+    // the ticket even when the gameplay claim is later rejected.
+    const consumed = store.consumeTicketIfMatches(ticket);
+    if (!consumed) return reject(c, 'Ticket already used or does not match issuance', false);
+
     if (ticket.gameId !== 'rug-pull-rumble') {
       return reject(c, `Verification not implemented for game: ${ticket.gameId}`, false);
     }
 
-    const replay = verifyRpr(ticket.seed, traceBytes);
+    let canonical: VerifyResult;
+    try {
+      canonical = await verifyRpr(ticket.seed, traceBytes, maxFrames);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : 'Replay failed';
+      return reject(c, reason, true);
+    }
 
-    // 8. Compare recomputed result to claim (Req 10.2).
-    if (replay.replayHash !== claimedResult.replayHash) {
+    if (!claimMatchesCanonical(claimedResult, canonical)) {
       store.saveResult({
         sessionId: ticket.sessionId,
-        gameId: claimedResult.gameId,
-        gameVersion: claimedResult.gameVersion,
-        buildVersion: claimedResult.buildVersion,
-        playerHandle: playerHandle ?? 'anon',
+        gameId: ticket.gameId,
+        gameVersion: ticket.gameVersion,
+        buildVersion: ticket.buildVersion,
+        playerHandle: submission.playerHandle ?? 'anon',
         outcome: claimedResult.outcome,
         score: claimedResult.score,
         stats: claimedResult.stats,
         durationMs: claimedResult.durationMs,
         inputTrace: traceBytes,
-        traceEncodingVersion,
-        inputTraceHash: claimedResult.inputTraceHash,
+        traceEncodingVersion: TRACE_ENCODING_VERSION,
+        inputTraceHash,
         replayHash: claimedResult.replayHash,
         verified: false,
         reviewFlag: true,
         submittedAt: Date.now(),
       });
-      return reject(c, 'Replay hash mismatch — flagged for review', true);
+      return reject(c, 'Canonical result mismatch — flagged for review', true);
     }
 
-    // 9. Accept: store the verified result (Req 10.5).
-    const canonicalScore = replay.score;
     store.saveResult({
       sessionId: ticket.sessionId,
-      gameId: claimedResult.gameId,
-      gameVersion: claimedResult.gameVersion,
-      buildVersion: claimedResult.buildVersion,
-      playerHandle: playerHandle ?? 'anon',
-      outcome: claimedResult.outcome,
-      score: canonicalScore,
-      stats: claimedResult.stats,
-      durationMs: claimedResult.durationMs,
+      gameId: ticket.gameId,
+      gameVersion: ticket.gameVersion,
+      buildVersion: ticket.buildVersion,
+      playerHandle: submission.playerHandle ?? 'anon',
+      outcome: canonical.outcome,
+      score: canonical.score,
+      stats: canonical.stats,
+      durationMs: canonical.durationMs,
       inputTrace: traceBytes,
-      traceEncodingVersion,
-      inputTraceHash: claimedResult.inputTraceHash,
-      replayHash: replay.replayHash,
+      traceEncodingVersion: TRACE_ENCODING_VERSION,
+      inputTraceHash,
+      replayHash: canonical.replayHash,
       verified: true,
       reviewFlag: false,
       submittedAt: Date.now(),
     });
 
-    // 10. Compute placement.
-    const placement = store.countBetterThan(claimedResult.gameId, canonicalScore, 'desc') + 1;
-    const total = store.totalVerified(claimedResult.gameId);
-
-    const res: SubmissionResponse = {
+    const category = config.leaderboardCategories['rpr.score']!;
+    const placement = store.countBetterThan(category.gameId, canonical.score, category.order) + 1;
+    const total = store.totalVerified(category.gameId);
+    const response: SubmissionResponse = {
       accepted: true,
-      canonicalScore,
+      canonicalScore: canonical.score,
       placement,
       totalEntries: total,
     };
-    return c.json(res, 200);
+    return c.json(response, 200);
   });
-
-  // ── GET /leaderboards/:categoryId ────────────────────────────────────────
 
   app.get('/leaderboards/:categoryId', (c) => {
     const categoryId = c.req.param('categoryId');
-    // Parse categoryId: "gameId.metric" (e.g. "rug-pull-rumble.score")
-    const [gameId] = categoryId.split('.');
-    if (!gameId) {
-      return c.json({ error: 'Invalid categoryId' }, 400);
-    }
+    const category = config.leaderboardCategories[categoryId];
+    if (!category) return c.json({ error: `Unknown leaderboard category: ${categoryId}` }, 404);
 
-    const entries = store.getLeaderboard(gameId, 'desc');
-    const res: LeaderboardResponse = {
+    const entries = store.getLeaderboard(category.gameId, category.order);
+    const response: LeaderboardResponse = {
       categoryId,
-      entries: entries.map((r) => ({
-        sessionId: r.sessionId,
-        score: r.score,
-        outcome: r.outcome,
-        playerHandle: r.playerHandle,
-        gameVersion: r.gameVersion,
-        submittedAt: r.submittedAt,
+      entries: entries.map((result) => ({
+        sessionId: result.sessionId,
+        score: result.score,
+        outcome: result.outcome,
+        playerHandle: result.playerHandle,
+        gameVersion: result.gameVersion,
+        submittedAt: result.submittedAt,
       })),
     };
-    return c.json(res);
+    return c.json(response);
   });
 
   return app;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
 const SIM_STEP_MS = 1000 / 60;
 
-function reject(c: Context, reason: string, flagged: boolean) {
-  const res: SubmissionResponse = { accepted: false, reason, flagged };
-  return c.json(res, 422);
+function invalidRequest(c: Context, error: unknown) {
+  const reason = error instanceof RequestValidationError || error instanceof SyntaxError
+    ? error.message
+    : 'Invalid request';
+  return c.json({ error: reason }, 400);
 }
 
-function base64ToBytes(b64: string): Uint8Array | null {
-  try {
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return bytes;
-  } catch {
-    return null;
-  }
+function reject(c: Context, reason: string, flagged: boolean) {
+  const response: SubmissionResponse = { accepted: false, reason, flagged };
+  return c.json(response, 422);
+}
+
+function resultIdentityError(
+  ticket: import('@rpr/protocol').SessionTicket,
+  result: import('@rpr/protocol').GameResult,
+): string | null {
+  if (result.sessionId !== ticket.sessionId) return 'Session ID mismatch';
+  if (result.gameId !== ticket.gameId) return 'Game ID mismatch';
+  if (result.gameVersion !== ticket.gameVersion) return 'Game version mismatch';
+  if (result.buildVersion !== ticket.buildVersion) return 'Build version mismatch';
+  if (result.seed !== ticket.seed) return 'Seed mismatch';
+  return null;
+}
+
+function claimMatchesCanonical(
+  claim: import('@rpr/protocol').GameResult,
+  canonical: VerifyResult,
+): boolean {
+  return claim.outcome === canonical.outcome
+    && claim.score === canonical.score
+    && claim.durationMs === canonical.durationMs
+    && claim.replayHash === canonical.replayHash
+    && numericRecordsEqual(claim.stats, canonical.stats);
+}
+
+function numericRecordsEqual(a: Record<string, number>, b: Record<string, number>): boolean {
+  const aKeys = Object.keys(a).sort();
+  const bKeys = Object.keys(b).sort();
+  return aKeys.length === bKeys.length
+    && aKeys.every((key, index) => key === bKeys[index] && a[key] === b[key]);
 }

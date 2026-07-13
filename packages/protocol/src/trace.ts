@@ -32,12 +32,25 @@ export interface DecodedTrace {
   frames: readonly DecodedTraceFrame[];
 }
 
+export interface TraceDecodeLimits {
+  maxFrames?: number;
+  maxButtons?: number;
+  maxAxes?: number;
+}
+
 /**
  * Unpacks a versioned trace into decoded frames. Used by the server-side
  * verifier and the determinism fixture test to replay a recorded session
  * (Req 8.4, 10.3).
  */
-export function unpackTrace(data: Uint8Array): DecodedTrace {
+export function unpackTrace(
+  data: Uint8Array,
+  limits: TraceDecodeLimits = {},
+): DecodedTrace {
+  if (data.byteLength < 7) {
+    throw new Error(`unpackTrace: trace is too short (${data.byteLength} bytes; expected at least 7)`);
+  }
+
   const view = new DataView(data.buffer, data.byteOffset, data.byteLength);
   let offset = 0;
 
@@ -53,7 +66,27 @@ export function unpackTrace(data: Uint8Array): DecodedTrace {
   const buttonCount = data[offset++] ?? 0;
   const axisCount = data[offset++] ?? 0;
 
+  const maxFrames = limits.maxFrames ?? 1_000_000;
+  const maxButtons = limits.maxButtons ?? 64;
+  const maxAxes = limits.maxAxes ?? 16;
+  if (!Number.isSafeInteger(maxFrames) || maxFrames < 0 || frameCount > maxFrames) {
+    throw new Error(`unpackTrace: frame count ${frameCount} exceeds limit ${maxFrames}`);
+  }
+  if (!Number.isSafeInteger(maxButtons) || maxButtons < 0 || buttonCount > maxButtons) {
+    throw new Error(`unpackTrace: button count ${buttonCount} exceeds limit ${maxButtons}`);
+  }
+  if (!Number.isSafeInteger(maxAxes) || maxAxes < 0 || axisCount > maxAxes) {
+    throw new Error(`unpackTrace: axis count ${axisCount} exceeds limit ${maxAxes}`);
+  }
+
   const buttonBytesPerFrame = Math.ceil(buttonCount / 8) || 0;
+  const frameSize = buttonBytesPerFrame + axisCount * 2;
+  const expectedSize = 7 + frameCount * frameSize;
+  if (!Number.isSafeInteger(expectedSize) || expectedSize !== data.byteLength) {
+    throw new Error(
+      `unpackTrace: payload length ${data.byteLength} does not match expected ${expectedSize}`,
+    );
+  }
   const buttonKeys: string[] = [];
   const axisKeys: string[] = [];
 

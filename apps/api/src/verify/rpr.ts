@@ -24,19 +24,18 @@ import {
   v1Moves,
 } from '@rpr/content';
 import { unpackTrace, type DecodedTraceFrame } from '@rpr/protocol';
+import { sha256HexBytes } from '@rpr/protocol';
 
 export interface VerifyResult {
-  /** Whether the recomputed replay hash matches the claimed hash. */
-  verified: boolean;
-  /** The recomputed terminal state serialization. */
+  /** SHA-256 of the recomputed terminal-state serialization. */
   replayHash: string;
-  /** Terminal fight status ('player_win' | 'cpu_win'). */
-  status: string;
-  /** Sim frames consumed. */
-  frames: number;
-  /** Recomputed score (first-pass formula, matches FightScene). */
+  outcome: 'win' | 'loss';
   score: number;
-  /** Duration in ms (frames × SIM_STEP_MS). */
+  stats: {
+    damageDealt: number;
+    damageTaken: number;
+    frames: number;
+  };
   durationMs: number;
 }
 
@@ -70,8 +69,16 @@ function decodeFrame(frame: DecodedTraceFrame): CombatInput {
  * @param packedTrace The raw packed trace bytes from the submission.
  * @returns The recomputed terminal state hash, status, frames, and score.
  */
-export function verifyRpr(seed: number, packedTrace: Uint8Array): VerifyResult {
-  const decoded = unpackTrace(packedTrace);
+export async function verifyRpr(
+  seed: number,
+  packedTrace: Uint8Array,
+  maxFrames = 18_000,
+): Promise<VerifyResult> {
+  const decoded = unpackTrace(packedTrace, {
+    maxFrames,
+    maxButtons: 13,
+    maxAxes: 0,
+  });
 
   const engine = new CombatEngine({
     createInitialState: (s) => createV1FightState(s),
@@ -91,16 +98,17 @@ export function verifyRpr(seed: number, packedTrace: Uint8Array): VerifyResult {
   const s = engine.state;
   const won = s.status === 'player_win';
   const damageDealt = Math.max(0, s.cpu.maxHealth - s.cpu.health);
+  const damageTaken = Math.max(0, s.player.maxHealth - s.player.health);
   const score = won
     ? 1000 + Math.floor((s.player.health / s.player.maxHealth) * 500)
     : damageDealt * 5;
 
+  const serialized = serializeGameState(s);
   return {
-    verified: false, // caller compares replayHash to the claim
-    replayHash: serializeGameState(s),
-    status: s.status,
-    frames: s.frame,
+    replayHash: await sha256HexBytes(new TextEncoder().encode(serialized)),
+    outcome: won ? 'win' : 'loss',
     score,
+    stats: { damageDealt, damageTaken, frames: s.frame },
     durationMs: Math.round(s.frame * SIM_STEP_MS),
   };
 }

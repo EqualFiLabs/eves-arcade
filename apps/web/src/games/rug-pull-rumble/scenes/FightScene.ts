@@ -23,6 +23,7 @@ import {
 import { GamepadSource, KeyboardSource, MergingSource, TraceRecorder, TouchOverlaySource } from '@rpr/controls';
 import type { InputSource } from '@rpr/controls';
 import type { ArcadeGameContext, GameResult } from '../../../arcade/types';
+import { sha256HexBytes } from '@rpr/protocol';
 import { InputMapper } from '../input/InputMapper';
 import { RPR_KEYBOARD_BINDINGS, RPR_GAMEPAD_BINDINGS } from '../input/bindings';
 import type { RprButton } from '../input/buttons';
@@ -219,7 +220,9 @@ export class FightScene extends Phaser.Scene {
     if (!ctx) return;
 
     const inputTraceHash = await this.recorder.hash();
-    const replayHash = await sha256Hex(serializeGameState(this.engine.state));
+    const replayHash = await sha256HexBytes(
+      new TextEncoder().encode(serializeGameState(this.engine.state)),
+    );
 
     const s = this.engine.state;
     const won = s.status === 'player_win';
@@ -255,15 +258,6 @@ export class FightScene extends Phaser.Scene {
     this.hud?.destroy();
     this.effects?.destroy();
   }
-}
-
-/** SHA-256 hex digest of a UTF-8 string via Web Crypto (Req 8.5). */
-async function sha256Hex(data: string): Promise<string> {
-  const bytes = new TextEncoder().encode(data);
-  const ab = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(ab).set(bytes);
-  const digest = await crypto.subtle.digest('SHA-256', ab);
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export { SIM_FPS };

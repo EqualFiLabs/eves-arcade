@@ -11,6 +11,10 @@ import { launchRprViaShell, runningSceneKey } from './helpers';
  */
 
 test('KO → DOM result screen with score/share/hooks → Play Again relaunches', async ({ page }) => {
+  await page.route('**/api/results', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    await route.continue();
+  });
   await launchRprViaShell(page);
   await page.keyboard.press('Enter');
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
@@ -34,6 +38,9 @@ test('KO → DOM result screen with score/share/hooks → Play Again relaunches'
 
   // The DOM result screen appears after a brief KO feedback delay.
   await expect(page.locator('.arcade-result')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.arcade-result-badge')).toHaveText('Verifying');
+  await expect(page.locator('.arcade-result-badge')).toHaveText('Verified', { timeout: 10_000 });
+  await expect(page.locator('.arcade-submission-message')).toContainText('Rank #');
 
   // Outcome label (win/loss) and score are present.
   await expect(page.locator('.arcade-result-outcome')).toBeVisible();
@@ -68,6 +75,7 @@ test('KO → DOM result screen with score/share/hooks → Play Again relaunches'
 });
 
 test('Copy button shows a status message (clipboard or selection fallback)', async ({ page }) => {
+  await page.route('**/api/sessions', (route) => route.abort());
   await launchRprViaShell(page);
   await page.keyboard.press('Enter');
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
@@ -90,6 +98,7 @@ test('Copy button shows a status message (clipboard or selection fallback)', asy
   await page.keyboard.up('ArrowRight');
 
   await expect(page.locator('.arcade-result')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.arcade-result-badge')).toHaveText('Unranked');
 
   // Click copy — the status message appears regardless of clipboard availability.
   await page.locator('.arcade-share-copy').click();

@@ -9,11 +9,20 @@ export interface SessionTicket {
   sessionId: string;
   gameId: string;
   gameVersion: string;
+  /** Exact deployed client build this ticket authorizes. */
+  buildVersion: string;
   seed: number;
   issuedAt: number;
   expiresAt: number;
   /** HMAC-SHA256 over the other fields, hex-encoded. */
   sig: string;
+}
+
+/** Client request for a ticket bound to an exact game and deployed build. */
+export interface SessionRequest {
+  gameId: string;
+  gameVersion: string;
+  buildVersion: string;
 }
 
 /**

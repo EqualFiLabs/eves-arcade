@@ -10,7 +10,15 @@ import type { SessionTicket } from '@rpr/protocol';
 
 /** Builds the canonical string that the HMAC covers. */
 function canonical(ticket: Omit<SessionTicket, 'sig'>): string {
-  return [ticket.sessionId, ticket.gameId, ticket.gameVersion, ticket.seed, ticket.issuedAt, ticket.expiresAt].join('|');
+  return [
+    ticket.sessionId,
+    ticket.gameId,
+    ticket.gameVersion,
+    ticket.buildVersion,
+    ticket.seed,
+    ticket.issuedAt,
+    ticket.expiresAt,
+  ].join('|');
 }
 
 /** Signs a ticket, returning the full ticket with the HMAC hex digest. */

@@ -14,17 +14,27 @@ import { distributionHooks, shareCopy, gameCopy } from '@rpr/content';
 export interface ResultScreenOptions {
   result: GameResult;
   manifest: ArcadeGameManifest;
-  /** Whether the session was ranked (ticket verified) or unranked (local). */
-  ranked: boolean;
+  submissionStatus: SubmissionStatus;
   /** Local personal best for unranked play (Req 11.3). */
   localBest: number;
   onPlayAgain(): void;
   onBack(): void;
 }
 
+export type SubmissionStatus =
+  | { kind: 'unranked' }
+  | { kind: 'submitting' }
+  | { kind: 'verified'; canonicalScore: number; placement: number; totalEntries: number }
+  | { kind: 'rejected'; reason: string }
+  | { kind: 'submission-failed'; message: string };
+
+export interface ResultScreenHandle {
+  updateSubmissionStatus(status: SubmissionStatus): void;
+}
+
 /** Renders the result screen into `root` and wires up all actions. */
-export function renderResultScreen(root: HTMLElement, opts: ResultScreenOptions): void {
-  const { result, manifest, ranked, localBest, onPlayAgain, onBack } = opts;
+export function renderResultScreen(root: HTMLElement, opts: ResultScreenOptions): ResultScreenHandle {
+  const { result, manifest, localBest, onPlayAgain, onBack } = opts;
   const won = result.outcome === 'win';
   const outcomeLabel = won
     ? (gameCopy.playerWin[0] ?? 'VICTORY')
@@ -42,8 +52,9 @@ export function renderResultScreen(root: HTMLElement, opts: ResultScreenOptions)
       <h2 class="arcade-result-outcome ${won ? 'arcade-win' : 'arcade-loss'}">${escapeHtml(outcomeLabel)}</h2>
       <div class="arcade-result-game">${escapeHtml(manifest.title)}</div>
       <div class="arcade-result-score">Score <strong>${result.score}</strong></div>
-      <div class="arcade-result-badge ${ranked ? 'arcade-ranked' : 'arcade-unranked'}">${ranked ? 'Ranked' : 'Unranked'}</div>
-      ${!ranked && localBest > 0 ? `<div class="arcade-result-best">Personal best: ${localBest}</div>` : ''}
+      <div class="arcade-result-badge"></div>
+      <div class="arcade-submission-message" hidden></div>
+      ${opts.submissionStatus.kind === 'unranked' && localBest > 0 ? `<div class="arcade-result-best">Personal best: ${localBest}</div>` : ''}
       <dl class="arcade-result-stats">${statsHtml}</dl>
       <div class="arcade-result-duration">${formatDuration(result.durationMs)}</div>
 
@@ -72,6 +83,7 @@ export function renderResultScreen(root: HTMLElement, opts: ResultScreenOptions)
           <dt>Seed</dt><dd>${result.seed}</dd>
           <dt>Trace hash</dt><dd><code>${escapeHtml(result.inputTraceHash)}</code></dd>
           <dt>Replay hash</dt><dd><code>${escapeHtml(result.replayHash)}</code></dd>
+          <dt>Submission</dt><dd class="arcade-submission-detail"></dd>
         </dl>
       </details>
     </section>
@@ -98,6 +110,63 @@ export function renderResultScreen(root: HTMLElement, opts: ResultScreenOptions)
 
   root.querySelector<HTMLButtonElement>('.arcade-play-again')?.addEventListener('click', onPlayAgain);
   root.querySelector<HTMLButtonElement>('.arcade-back-to-arcade')?.addEventListener('click', onBack);
+
+  const handle: ResultScreenHandle = {
+    updateSubmissionStatus(status) {
+      updateSubmissionStatus(root, status);
+    },
+  };
+  handle.updateSubmissionStatus(opts.submissionStatus);
+  return handle;
+}
+
+function updateSubmissionStatus(root: HTMLElement, status: SubmissionStatus): void {
+  const badge = root.querySelector<HTMLElement>('.arcade-result-badge');
+  const message = root.querySelector<HTMLElement>('.arcade-submission-message');
+  const detail = root.querySelector<HTMLElement>('.arcade-submission-detail');
+  const score = root.querySelector<HTMLElement>('.arcade-result-score strong');
+  if (!badge || !message || !detail) return;
+
+  badge.className = 'arcade-result-badge';
+  message.hidden = true;
+  message.textContent = '';
+
+  switch (status.kind) {
+    case 'unranked':
+      badge.classList.add('arcade-unranked');
+      badge.textContent = 'Unranked';
+      detail.textContent = 'Local session — not submitted';
+      break;
+    case 'submitting':
+      badge.classList.add('arcade-submitting');
+      badge.textContent = 'Verifying';
+      message.hidden = false;
+      message.textContent = 'Replaying your run on the server…';
+      detail.textContent = 'Submission pending';
+      break;
+    case 'verified':
+      badge.classList.add('arcade-ranked');
+      badge.textContent = 'Verified';
+      message.hidden = false;
+      message.textContent = `Rank #${status.placement} of ${status.totalEntries}`;
+      detail.textContent = `Accepted — canonical score ${status.canonicalScore}`;
+      if (score) score.textContent = String(status.canonicalScore);
+      break;
+    case 'rejected':
+      badge.classList.add('arcade-rejected');
+      badge.textContent = 'Rejected';
+      message.hidden = false;
+      message.textContent = 'This run could not be verified.';
+      detail.textContent = status.reason;
+      break;
+    case 'submission-failed':
+      badge.classList.add('arcade-unranked');
+      badge.textContent = 'Unranked';
+      message.hidden = false;
+      message.textContent = 'Submission failed — result saved locally.';
+      detail.textContent = status.message;
+      break;
+  }
 }
 
 function showStatus(el: HTMLElement | null, msg: string): void {

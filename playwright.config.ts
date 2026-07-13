@@ -9,12 +9,22 @@ export default defineConfig({
   // reach KO, so the global timeout gives room for KO + result flow + replay.
   timeout: 120_000,
   reporter: 'list',
-  webServer: {
-    command: 'pnpm dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120_000,
-  },
+  webServer: [
+    {
+      command: 'pnpm --filter @rpr/api start',
+      url: 'http://127.0.0.1:3000/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: { BUILD_VERSION: 'test', KNOWN_BUILD_VERSIONS: 'test' },
+    },
+    {
+      command: 'pnpm dev',
+      url: 'http://localhost:5173',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120_000,
+      env: { BUILD_VERSION: 'test' },
+    },
+  ],
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',

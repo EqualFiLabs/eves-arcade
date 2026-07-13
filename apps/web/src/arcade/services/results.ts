@@ -11,7 +11,7 @@ import { TRACE_ENCODING_VERSION } from '@rpr/protocol';
 const API_URL =
   (typeof import.meta !== 'undefined' &&
     (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) ??
-  'http://localhost:3000';
+  '/api';
 
 const SUBMISSION_TIMEOUT_MS = 10_000;
 

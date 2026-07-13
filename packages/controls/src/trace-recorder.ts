@@ -1,5 +1,5 @@
 import type { InputFrame, InputSource } from './frame';
-import { TRACE_ENCODING_VERSION } from '@rpr/protocol';
+import { TRACE_ENCODING_VERSION, sha256HexBytes } from '@rpr/protocol';
 
 // Re-export trace encoding types from @rpr/protocol for backward compat.
 export { TRACE_ENCODING_VERSION, unpackTrace } from '@rpr/protocol';
@@ -92,11 +92,7 @@ export class TraceRecorder<B extends string, X extends string = never> {
 
   /** SHA-256 hex digest of the packed trace (Req 8.3). */
   async hash(): Promise<string> {
-    const data = this.pack();
-    const ab = new ArrayBuffer(data.byteLength);
-    new Uint8Array(ab).set(data);
-    const digest = await crypto.subtle.digest('SHA-256', ab);
-    return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    return sha256HexBytes(this.pack());
   }
 
   private record(frame: InputFrame<B, X>): void {

@@ -50,6 +50,14 @@ export class Store {
     return entry.ticket;
   }
 
+  /** Atomically consumes the stored ticket only when every signed field matches. */
+  consumeTicketIfMatches(ticket: SessionTicket): SessionTicket | null {
+    const entry = this.tickets.get(ticket.sessionId);
+    if (!entry || entry.used || !ticketsEqual(entry.ticket, ticket)) return null;
+    entry.used = true;
+    return entry.ticket;
+  }
+
   getTicket(sessionId: string): SessionTicket | null {
     return this.tickets.get(sessionId)?.ticket ?? null;
   }
@@ -88,6 +96,17 @@ export class Store {
     this.tickets.clear();
     this.results.length = 0;
   }
+}
+
+function ticketsEqual(a: SessionTicket, b: SessionTicket): boolean {
+  return a.sessionId === b.sessionId
+    && a.gameId === b.gameId
+    && a.gameVersion === b.gameVersion
+    && a.buildVersion === b.buildVersion
+    && a.seed === b.seed
+    && a.issuedAt === b.issuedAt
+    && a.expiresAt === b.expiresAt
+    && a.sig === b.sig;
 }
 
 export type { StoredResult };

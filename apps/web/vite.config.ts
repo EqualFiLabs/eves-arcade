@@ -8,6 +8,10 @@ import { execSync } from 'node:child_process';
 // Best-effort git SHA for build versioning (Req 8.6). Falls back to 'dev' when
 // git is unavailable (e.g. archived export).
 function gitSha(): string {
+  if (process.env.BUILD_VERSION) {
+    return process.env.BUILD_VERSION;
+  }
+
   try {
     return execSync('git rev-parse --short HEAD', { encoding: 'utf-8' }).trim();
   } catch {
@@ -22,6 +26,13 @@ export default defineConfig({
   server: {
     port: 5173,
     host: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
   },
   build: {
     outDir: 'dist',

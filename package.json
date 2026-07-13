@@ -6,6 +6,8 @@
   "description": "Proof of Fight V1 — a Sminem vs Bogdanoff crypto-parody Phaser 4 fighting game.",
   "scripts": {
     "dev": "pnpm --filter @rpr/web dev",
+    "dev:api": "pnpm --filter @rpr/api dev",
+    "dev:ranked": "pnpm --parallel --filter @rpr/api --filter @rpr/web dev",
     "build": "pnpm --filter @rpr/web build",
     "preview": "pnpm --filter @rpr/web preview",
     "typecheck": "pnpm -r typecheck",
