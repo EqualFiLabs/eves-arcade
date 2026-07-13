@@ -87,8 +87,8 @@ export function unpackTrace(
       `unpackTrace: payload length ${data.byteLength} does not match expected ${expectedSize}`,
     );
   }
-  const buttonKeys: string[] = [];
-  const axisKeys: string[] = [];
+  const buttonKeys = Array.from({ length: buttonCount }, (_, index) => `b${index}`);
+  const axisKeys = Array.from({ length: axisCount }, (_, index) => `x${index}`);
 
   const frames: DecodedTraceFrame[] = [];
   for (let f = 0; f < frameCount; f++) {
@@ -99,8 +99,7 @@ export function unpackTrace(
       for (let bit = 0; bit < 8; bit++) {
         const i = byteI * 8 + bit;
         if (i < buttonCount) {
-          const key = `b${i}`;
-          if (f === 0) buttonKeys.push(key);
+          const key = buttonKeys[i]!;
           buttons[key] = (byte & (1 << bit)) !== 0;
         }
       }
@@ -109,8 +108,7 @@ export function unpackTrace(
     const axes: Record<string, number> = {};
     for (let i = 0; i < axisCount; i++) {
       const val = view.getInt16(offset, false) / 32767;
-      const key = `x${i}`;
-      if (f === 0) axisKeys.push(key);
+      const key = axisKeys[i]!;
       axes[key] = val;
       offset += 2;
     }

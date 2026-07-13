@@ -2,25 +2,19 @@ import * as Phaser from 'phaser';
 import {
   type CombatEvent,
   type CombatInput,
-  type InputDirection,
   type MoveCategory,
   type MoveId,
-  BogdanoffBossBrain,
-  CombatEngine,
   MAX_STEPS_PER_FRAME,
-  NEUTRAL_INPUT,
   SIM_FPS,
   SIM_STEP_MS,
 } from '@rpr/sim';
 import {
-  bogdanoffCpuProfile,
   bogdanoffDefinition,
-  createV1FightState,
   marketControlRoom,
   sminemDefinition,
   v1Moves,
 } from '@rpr/content';
-import { unpackTrace, type DecodedTraceFrame } from '@rpr/protocol';
+import { RprMatch, decodeRprTrace } from '@rpr/rug-pull-rumble-core';
 import { FighterRenderer } from '../renderers/FighterRenderer';
 import { HudView } from '../renderers/HudView';
 import { StageRenderer } from '../renderers/StageRenderer';
@@ -45,9 +39,8 @@ import { EffectsRenderer } from '../renderers/EffectsRenderer';
  * The DOM overlay in `arcade/replay.ts` sets/reads these to drive the UI.
  */
 export class ReplayScene extends Phaser.Scene {
-  private engine!: CombatEngine;
-  private brain!: BogdanoffBossBrain;
-  private traceFrames: readonly DecodedTraceFrame[] = [];
+  private match!: RprMatch;
+  private traceInputs: readonly CombatInput[] = [];
   private frameIndex = 0;
   private accumulator = 0;
 
@@ -67,21 +60,15 @@ export class ReplayScene extends Phaser.Scene {
     const data = this.game.registry.get('replay') as { seed: number; trace: Uint8Array } | undefined;
     if (!data) throw new Error('ReplayScene: missing replay data in registry');
 
-    const decoded = unpackTrace(data.trace);
-    this.traceFrames = decoded.frames;
+    const decoded = decodeRprTrace(data.trace, 1_000_000);
+    this.traceInputs = decoded.inputs;
     this.frameIndex = 0;
     this.accumulator = 0;
 
-    this.engine = new CombatEngine({
-      createInitialState: (s) => createV1FightState(s),
-      definitions: [sminemDefinition, bogdanoffDefinition],
-      moves: v1Moves,
-      seed: data.seed,
-    });
-    this.brain = new BogdanoffBossBrain();
+    this.match = new RprMatch(data.seed);
 
     // Same renderer + camera setup as FightScene (no new rendering code).
-    this.stage = new StageRenderer(this, this.engine.state.stage, marketControlRoom);
+    this.stage = new StageRenderer(this, this.match.state.stage, marketControlRoom);
     this.playerRenderer = new FighterRenderer(this, sminemDefinition, true, marketControlRoom.floorY);
     this.cpuRenderer = new FighterRenderer(this, bogdanoffDefinition, false, marketControlRoom.floorY);
     this.hud = new HudView(this);
@@ -93,14 +80,14 @@ export class ReplayScene extends Phaser.Scene {
     const cam = marketControlRoom.camera;
     this.fightCam = new FightCamera(
       main,
-      this.engine.state.stage.worldBounds,
+      this.match.state.stage.worldBounds,
       this.scale.height,
       this.scale.width,
       cam.minZoom,
       cam.maxZoom,
       marketControlRoom.floorY,
     );
-    this.fightCam.snap(this.engine.state.player.position.x, this.engine.state.cpu.position.x);
+    this.fightCam.snap(this.match.state.player.position.x, this.match.state.cpu.position.x);
 
     this.hudCam = this.cameras.add(0, 0, this.scale.width, this.scale.height, false, 'hud');
     this.hudCam.setScroll(0, 0).setZoom(1);
@@ -117,7 +104,7 @@ export class ReplayScene extends Phaser.Scene {
     this.game.registry.set('replayPlaying', true);
     this.game.registry.set('replaySpeed', 1);
 
-    (window as unknown as { __engine?: unknown }).__engine = this.engine;
+    (window as unknown as { __engine?: unknown }).__engine = this.match;
   }
 
   override update(_time: number, delta: number): void {
@@ -140,14 +127,14 @@ export class ReplayScene extends Phaser.Scene {
       }
     }
 
-    this.effects.consumeEvents(frameEvents, this.engine.state.player, this.engine.state.cpu);
+    this.effects.consumeEvents(frameEvents, this.match.state.player, this.match.state.cpu);
 
     // Publish playback progress for the DOM overlay.
     this.game.registry.set('replayFrame', this.frameIndex);
-    this.game.registry.set('replayTotal', this.traceFrames.length);
+    this.game.registry.set('replayTotal', this.traceInputs.length);
 
     // Sync renderers (identical to FightScene).
-    const s = this.engine.state;
+    const s = this.match.state;
     this.stage.sync(s.stage);
     this.playerRenderer.sync(s.player);
     this.cpuRenderer.sync(s.cpu);
@@ -155,14 +142,10 @@ export class ReplayScene extends Phaser.Scene {
     this.fightCam.update(s.player.position.x, s.cpu.position.x, delta);
   }
 
-  /** Advances one sim step from the trace (or neutral if trace exhausted). */
+  /** Advances exactly one recorded sim step and stops at trace exhaustion. */
   private advance(events: CombatEvent[]): void {
-    if (this.engine.state.status !== 'active') return;
-    const playerInput = this.frameIndex < this.traceFrames.length
-      ? decodeTraceFrame(this.traceFrames[this.frameIndex]!)
-      : NEUTRAL_INPUT;
-    const cpuInput = this.brain.decide(this.engine.state, bogdanoffCpuProfile);
-    const step = this.engine.step(playerInput, cpuInput);
+    if (this.match.state.status !== 'active' || this.frameIndex >= this.traceInputs.length) return;
+    const step = this.match.step(this.traceInputs[this.frameIndex]!);
     events.push(...step.events);
     this.frameIndex++;
   }
@@ -174,29 +157,6 @@ export class ReplayScene extends Phaser.Scene {
     this.hud?.destroy();
     this.effects?.destroy();
   }
-}
-
-/**
- * Maps a decoded trace frame (positional buttons b0..b12) back to CombatInput.
- * Button order matches the RPR keyboard bindings (left, right, up, down, block,
- * lightHigh, lightLow, heavyHigh, heavyLow, special, super, start, mute) — the
- * same order the TraceRecorder captures at recording time.
- */
-function decodeTraceFrame(frame: DecodedTraceFrame): CombatInput {
-  const b = (i: number): boolean => frame.buttons[`b${i}`] ?? false;
-  const h = (b(1) ? 1 : 0) - (b(0) ? 1 : 0) as InputDirection;
-  const v = (b(3) ? 1 : 0) - (b(2) ? 1 : 0) as InputDirection;
-  return {
-    horizontal: h,
-    vertical: v,
-    block: b(4),
-    lightHigh: b(5),
-    lightLow: b(6),
-    heavyHigh: b(7),
-    heavyLow: b(8),
-    special: b(9),
-    super: b(10),
-  };
 }
 
 export { SIM_FPS };

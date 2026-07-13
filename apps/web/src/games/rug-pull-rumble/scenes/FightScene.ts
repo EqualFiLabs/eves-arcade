@@ -4,18 +4,13 @@ import {
   type CombatInput,
   type MoveCategory,
   type MoveId,
-  BogdanoffBossBrain,
-  CombatEngine,
   MAX_STEPS_PER_FRAME,
   NEUTRAL_INPUT,
   SIM_FPS,
   SIM_STEP_MS,
-  serializeGameState,
 } from '@rpr/sim';
 import {
-  bogdanoffCpuProfile,
   bogdanoffDefinition,
-  createV1FightState,
   marketControlRoom,
   sminemDefinition,
   v1Moves,
@@ -23,7 +18,7 @@ import {
 import { GamepadSource, KeyboardSource, MergingSource, TraceRecorder, TouchOverlaySource } from '@rpr/controls';
 import type { InputSource } from '@rpr/controls';
 import type { ArcadeGameContext, GameResult } from '../../../arcade/types';
-import { sha256HexBytes } from '@rpr/protocol';
+import { RprMatch, deriveRprCanonicalResult } from '@rpr/rug-pull-rumble-core';
 import { InputMapper } from '../input/InputMapper';
 import { RPR_KEYBOARD_BINDINGS, RPR_GAMEPAD_BINDINGS } from '../input/bindings';
 import type { RprButton } from '../input/buttons';
@@ -43,8 +38,8 @@ const KO_RESULT_DELAY_MS = 2000;
 /**
  * FightScene — owns the Phaser runtime for the fight (design: FightScene).
  *
- * Instantiates the deterministic {@link CombatEngine}, the {@link BogdanoffBossBrain}
- * CPU, the {@link InputMapper}, the stage/fighter renderers, the HUD, and a
+ * Instantiates the canonical deterministic {@link RprMatch}, the
+ * {@link InputMapper}, stage/fighter renderers, the HUD, and a
  * dual-target {@link FightCamera}, then advances the simulation at a fixed 60 Hz
  * step driven by a delta accumulator (Req 15.3).
  *
@@ -53,14 +48,13 @@ const KO_RESULT_DELAY_MS = 2000;
  * distortion. Presentation only ever READS sim state (Property 10); it never
  * mutates combat state. CPU legality is enforced by the engine (Property 9).
  *
- * On KO the scene delays briefly (KO feedback) then builds a {@link GameResult}
- * with the input trace hash and terminal state hash, and calls
+ * On KO the scene delays briefly (KO feedback), asks the core for the canonical
+ * result, attaches session and trace identity, and calls
  * `ctx.onResult` exactly once. The shell tears down the Phaser instance and
  * shows the DOM result screen (Req 4.1).
  */
 export class FightScene extends Phaser.Scene {
-  private engine!: CombatEngine;
-  private brain!: BogdanoffBossBrain;
+  private match!: RprMatch;
   private inputMapper!: InputMapper;
   private recorder!: TraceRecorder<RprButton>;
   private sources: InputSource<RprButton>[] = [];
@@ -85,13 +79,7 @@ export class FightScene extends Phaser.Scene {
     const ctx = this.game.registry.get('arcade') as ArcadeGameContext | undefined;
     const seed = ctx?.session.seed ?? 0;
 
-    this.engine = new CombatEngine({
-      createInitialState: (s) => createV1FightState(s),
-      definitions: [sminemDefinition, bogdanoffDefinition],
-      moves: v1Moves,
-      seed,
-    });
-    this.brain = new BogdanoffBossBrain();
+    this.match = new RprMatch(seed);
 
     // Input: merge keyboard + gamepad (+ touch on touch devices) via
     // MergingSource, then wrap with TraceRecorder so every polled frame is
@@ -116,7 +104,7 @@ export class FightScene extends Phaser.Scene {
     this.muted = !!this.game.registry.get('muted');
 
     // --- Renderers (world space) + HUD (fixed). ---
-    this.stage = new StageRenderer(this, this.engine.state.stage, marketControlRoom);
+    this.stage = new StageRenderer(this, this.match.state.stage, marketControlRoom);
     this.playerRenderer = new FighterRenderer(this, sminemDefinition, true, marketControlRoom.floorY);
     this.cpuRenderer = new FighterRenderer(this, bogdanoffDefinition, false, marketControlRoom.floorY);
     this.hud = new HudView(this);
@@ -130,14 +118,14 @@ export class FightScene extends Phaser.Scene {
     const cam = marketControlRoom.camera;
     this.fightCam = new FightCamera(
       main,
-      this.engine.state.stage.worldBounds,
+      this.match.state.stage.worldBounds,
       this.scale.height,
       this.scale.width,
       cam.minZoom,
       cam.maxZoom,
       marketControlRoom.floorY,
     );
-    this.fightCam.snap(this.engine.state.player.position.x, this.engine.state.cpu.position.x);
+    this.fightCam.snap(this.match.state.player.position.x, this.match.state.cpu.position.x);
 
     this.hudCam = this.cameras.add(0, 0, this.scale.width, this.scale.height, false, 'hud');
     this.hudCam.setScroll(0, 0).setZoom(1);
@@ -164,7 +152,7 @@ export class FightScene extends Phaser.Scene {
       ctx?.updateSettings?.({ muted: this.muted });
     });
 
-    (window as unknown as { __engine?: unknown }).__engine = this.engine;
+    (window as unknown as { __engine?: unknown }).__engine = this.match;
     (window as unknown as { __effects?: unknown }).__effects = this.effects;
   }
 
@@ -181,12 +169,11 @@ export class FightScene extends Phaser.Scene {
       const frameEvents: CombatEvent[] = [];
       while (this.accumulator >= SIM_STEP_MS) {
         const playerInput: CombatInput =
-          this.engine.state.status === 'active' ? this.inputMapper.poll() : NEUTRAL_INPUT;
-        const cpuInput = this.brain.decide(this.engine.state, bogdanoffCpuProfile);
-        const step = this.engine.step(playerInput, cpuInput);
+          this.match.state.status === 'active' ? this.inputMapper.poll() : NEUTRAL_INPUT;
+        const step = this.match.step(playerInput);
         frameEvents.push(...step.events);
         this.accumulator -= SIM_STEP_MS;
-        if (this.engine.state.status !== 'active') {
+        if (this.match.state.status !== 'active') {
           this.settled = true;
           // Let the player see the KO feedback before the shell result screen.
           this.time.delayedCall(KO_RESULT_DELAY_MS, () => {
@@ -195,11 +182,11 @@ export class FightScene extends Phaser.Scene {
           break;
         }
       }
-      this.effects.consumeEvents(frameEvents, this.engine.state.player, this.engine.state.cpu);
+      this.effects.consumeEvents(frameEvents, this.match.state.player, this.match.state.cpu);
     }
 
     // Presentation follows simulation (Property 10).
-    const s = this.engine.state;
+    const s = this.match.state;
     this.stage.sync(s.stage);
     this.playerRenderer.sync(s.player);
     this.cpuRenderer.sync(s.cpu);
@@ -208,9 +195,8 @@ export class FightScene extends Phaser.Scene {
   }
 
   /**
-   * Builds the {@link GameResult} from the terminal sim state and calls
-   * `ctx.onResult` exactly once (Req 4.1). The trace hash and replay hash make
-   * the result structurally verifiable (Req 8.3/8.5).
+   * Attaches platform identity to the core-owned canonical result and calls
+   * `ctx.onResult` exactly once (Req 4.1).
    */
   private async reportResult(): Promise<void> {
     if (this.resultReported) return;
@@ -220,17 +206,7 @@ export class FightScene extends Phaser.Scene {
     if (!ctx) return;
 
     const inputTraceHash = await this.recorder.hash();
-    const replayHash = await sha256HexBytes(
-      new TextEncoder().encode(serializeGameState(this.engine.state)),
-    );
-
-    const s = this.engine.state;
-    const won = s.status === 'player_win';
-    const damageDealt = Math.max(0, s.cpu.maxHealth - s.cpu.health);
-    const damageTaken = Math.max(0, s.player.maxHealth - s.player.health);
-    const score = won
-      ? 1000 + Math.floor((s.player.health / s.player.maxHealth) * 500)
-      : damageDealt * 5;
+    const canonical = await deriveRprCanonicalResult(this.match.state);
 
     const result: GameResult = {
       gameId: rugPullRumbleManifest.id,
@@ -238,12 +214,12 @@ export class FightScene extends Phaser.Scene {
       buildVersion: __BUILD_VERSION__,
       sessionId: ctx.session.ticket?.sessionId ?? '',
       seed: ctx.session.seed,
-      outcome: won ? 'win' : 'loss',
-      score,
-      stats: { damageDealt, damageTaken, frames: s.frame },
-      durationMs: Math.round(s.frame * SIM_STEP_MS),
+      outcome: canonical.outcome,
+      score: canonical.score,
+      stats: canonical.stats,
+      durationMs: canonical.durationMs,
       inputTraceHash,
-      replayHash,
+      replayHash: canonical.replayHash,
     };
 
     ctx.onResult(result, this.recorder.pack());

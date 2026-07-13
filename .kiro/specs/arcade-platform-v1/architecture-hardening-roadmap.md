@@ -54,7 +54,7 @@ shims should be temporary and should have an explicit removal phase.
 |---|---|---|---|
 | 0 | Baseline and architecture record | COMPLETE | None |
 | 1 | Repair the ranked vertical slice | COMPLETE | Phase 0 |
-| 2 | Make each game core the source of truth | NOT STARTED | Phase 1 |
+| 2 | Make each game core the source of truth | COMPLETE | Phase 1 |
 | 3 | Redesign the platform contracts and capabilities | NOT STARTED | Phase 2 |
 | 4 | Harden the shell lifecycle | NOT STARTED | Phase 3 |
 | 5 | Make shared web surfaces game-neutral | NOT STARTED | Phase 3 |
@@ -143,12 +143,12 @@ the shell, result screen, session client, API routes, and storage layer.
 
 ## Current Baseline
 
-Phase 1 refreshed the baseline on 2026-07-12 (starting from `f9b7467`):
+Phase 2 refreshed the baseline on 2026-07-12 (starting from `4af098c`):
 
 - Node `22.22.0`, pnpm `10.23.0`, TypeScript `5.9.3`, Playwright
   `1.61.1`, Vite `5.4.21`, and Phaser `4.2.0` resolved.
 - `pnpm typecheck` and `pnpm lint` pass.
-- `pnpm test:sim` passes with 23 files and 197 tests across simulation,
+- `pnpm test:sim` passes with 24 files and 205 tests across simulation,
   content, controls, determinism, and API behavior.
 - `pnpm test:e2e` passes with 17 tests across desktop Chromium, mobile
   portrait, and mobile landscape projects.
@@ -157,6 +157,9 @@ Phase 1 refreshed the baseline on 2026-07-12 (starting from `f9b7467`):
 - Only Rug Pull Rumble is registered and the API store remains in memory. Its
   ranked browser flow now uses same-origin `/api`, build-bound tickets, strict
   trace validation, canonical replay storage, and visible verified placement.
+- Rug Pull Rumble now has a pure composed core used by live play, replay, tests,
+  and API verification. The generic simulation and content boundaries remain
+  intact.
 - The target dependency policy is one exact Phaser `4.2.1` pin. The package
   update is intentionally deferred beyond Phase 0.
 - The roadmap and Crypto Crash Launcher specifications were untracked before
@@ -479,15 +482,36 @@ or statistics.
 
 ## Work Log
 
-Status: `NOT STARTED`
+Status: `COMPLETE`
 
 Planning document:
 
+- `phases/phase-2-game-core-source-of-truth.md`
+
 Implementation notes:
+
+- Added `@rpr/rug-pull-rumble-core` as the only owner of composed match wiring,
+  V1 trace decoding, terminal serialization, result derivation, and replay.
+- Migrated the live scene, replay viewer, API verifier, manifest/config version
+  constants, and determinism fixtures to the core.
+- Made exact terminal exhaustion canonical: incomplete and trailing traces are
+  consumed and retained for review after replay begins.
 
 Verification evidence:
 
+- Typecheck, lint, production build, and `git diff --check` pass.
+- 24 Vitest files with 205 tests and all 17 Playwright tests pass.
+- The pinned cross-consumer fixture produces score `555` at frame `677` and
+  replay hash prefix `254078a5`; architecture checks keep Phaser and apps out of
+  the pure core.
+
 Deferred items:
+
+- Phase 3 owns generalized platform contracts and result presentation.
+- Phase 6 owns explicit named action schemas and a replacement for positional
+  Trace V1.
+- Phase 7 owns generic verifier dispatch, persistent review data, and durable
+  ticket transactions.
 
 ---
 

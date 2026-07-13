@@ -80,6 +80,11 @@ export class Store {
     return filtered.slice(0, limit);
   }
 
+  /** Unverified replay attempts retained for abuse review. */
+  getReviewResults(): StoredResult[] {
+    return this.results.filter((result) => result.reviewFlag && !result.verified);
+  }
+
   /** Count of verified entries with a better score (for placement). */
   countBetterThan(gameId: string, score: number, order: 'desc' | 'asc'): number {
     return this.results.filter(

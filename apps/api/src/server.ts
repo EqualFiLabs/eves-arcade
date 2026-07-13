@@ -7,11 +7,14 @@ import { verifyRpr, type VerifyResult } from './verify/rpr';
 import {
   TRACE_ENCODING_VERSION,
   sha256HexBytes,
-  unpackTrace,
   type LeaderboardResponse,
   type SessionResponse,
   type SubmissionResponse,
 } from '@rpr/protocol';
+import {
+  RPR_GAME_ID,
+  decodeRprTrace,
+} from '@rpr/rug-pull-rumble-core';
 import {
   RequestValidationError,
   decodeBase64Strict,
@@ -105,13 +108,15 @@ export function createApp(deps: AppDeps): Hono {
     }
 
     let traceBytes: Uint8Array;
+    let replayInputs: ReturnType<typeof decodeRprTrace>['inputs'];
     const maxFrames = Math.ceil(config.ticketTtlMs / SIM_STEP_MS);
     try {
       traceBytes = decodeBase64Strict(submission.inputTrace);
-      const decoded = unpackTrace(traceBytes, { maxFrames, maxButtons: 13, maxAxes: 0 });
+      const decoded = decodeRprTrace(traceBytes, maxFrames);
       if (decoded.version !== submission.traceEncodingVersion) {
         return reject(c, 'Trace version does not match its envelope', false);
       }
+      replayInputs = decoded.inputs;
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Invalid trace';
       return reject(c, reason, false);
@@ -135,37 +140,21 @@ export function createApp(deps: AppDeps): Hono {
     const consumed = store.consumeTicketIfMatches(ticket);
     if (!consumed) return reject(c, 'Ticket already used or does not match issuance', false);
 
-    if (ticket.gameId !== 'rug-pull-rumble') {
+    if (ticket.gameId !== RPR_GAME_ID) {
       return reject(c, `Verification not implemented for game: ${ticket.gameId}`, false);
     }
 
     let canonical: VerifyResult;
     try {
-      canonical = await verifyRpr(ticket.seed, traceBytes, maxFrames);
+      canonical = await verifyRpr(ticket.seed, replayInputs);
     } catch (error) {
       const reason = error instanceof Error ? error.message : 'Replay failed';
+      saveReviewResult(store, submission, traceBytes, inputTraceHash);
       return reject(c, reason, true);
     }
 
     if (!claimMatchesCanonical(claimedResult, canonical)) {
-      store.saveResult({
-        sessionId: ticket.sessionId,
-        gameId: ticket.gameId,
-        gameVersion: ticket.gameVersion,
-        buildVersion: ticket.buildVersion,
-        playerHandle: submission.playerHandle ?? 'anon',
-        outcome: claimedResult.outcome,
-        score: claimedResult.score,
-        stats: claimedResult.stats,
-        durationMs: claimedResult.durationMs,
-        inputTrace: traceBytes,
-        traceEncodingVersion: TRACE_ENCODING_VERSION,
-        inputTraceHash,
-        replayHash: claimedResult.replayHash,
-        verified: false,
-        reviewFlag: true,
-        submittedAt: Date.now(),
-      });
+      saveReviewResult(store, submission, traceBytes, inputTraceHash);
       return reject(c, 'Canonical result mismatch — flagged for review', true);
     }
 
@@ -265,4 +254,31 @@ function numericRecordsEqual(a: Record<string, number>, b: Record<string, number
   const bKeys = Object.keys(b).sort();
   return aKeys.length === bKeys.length
     && aKeys.every((key, index) => key === bKeys[index] && a[key] === b[key]);
+}
+
+function saveReviewResult(
+  store: Store,
+  submission: import('@rpr/protocol').ScoreSubmission,
+  traceBytes: Uint8Array,
+  inputTraceHash: string,
+): void {
+  const { ticket, claimedResult } = submission;
+  store.saveResult({
+    sessionId: ticket.sessionId,
+    gameId: ticket.gameId,
+    gameVersion: ticket.gameVersion,
+    buildVersion: ticket.buildVersion,
+    playerHandle: submission.playerHandle ?? 'anon',
+    outcome: claimedResult.outcome,
+    score: claimedResult.score,
+    stats: claimedResult.stats,
+    durationMs: claimedResult.durationMs,
+    inputTrace: traceBytes,
+    traceEncodingVersion: TRACE_ENCODING_VERSION,
+    inputTraceHash,
+    replayHash: claimedResult.replayHash,
+    verified: false,
+    reviewFlag: true,
+    submittedAt: Date.now(),
+  });
 }

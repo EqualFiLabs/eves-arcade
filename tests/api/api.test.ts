@@ -4,6 +4,8 @@ import { loadConfig } from '../../apps/api/src/config';
 import { Store } from '../../apps/api/src/store';
 import { signTicket, verifyTicketSig } from '../../apps/api/src/crypto';
 import { verifyRpr } from '../../apps/api/src/verify/rpr';
+import { terminalRprFixture } from '../fixtures/rpr-terminal';
+import { decodeRprTrace } from '@rpr/rug-pull-rumble-core';
 import {
   TRACE_ENCODING_VERSION,
   sha256HexBytes,
@@ -67,8 +69,11 @@ async function validSubmission(options: {
   envelope?: Partial<ScoreSubmission>;
 } = {}): Promise<ScoreSubmission> {
   const ticket = options.ticket ?? makeTicket();
-  const trace = options.trace ?? makeTrace();
-  const canonical = await verifyRpr(ticket.seed, trace);
+  const fixture = await terminalRprFixture(ticket.seed);
+  const trace = options.trace ?? fixture.trace;
+  const canonical = options.trace
+    ? await verifyRpr(ticket.seed, decodeRprTrace(trace, 18_000).inputs)
+    : fixture.canonical;
   const claim: GameResult = {
     gameId: ticket.gameId,
     gameVersion: ticket.gameVersion,
@@ -158,10 +163,15 @@ describe('POST /results', () => {
     const response = await postResult(api, submission);
     expect(response.status).toBe(200);
     const result = await response.json();
-    expect(result).toMatchObject({ accepted: true, canonicalScore: 0, placement: 1, totalEntries: 1 });
+    expect(result).toMatchObject({
+      accepted: true,
+      canonicalScore: submission.claimedResult.score,
+      placement: 1,
+      totalEntries: 1,
+    });
 
     const stored = store.getLeaderboard(ticket.gameId, 'desc')[0]!;
-    const canonical = await verifyRpr(ticket.seed, makeTrace());
+    const canonical = (await terminalRprFixture(ticket.seed)).canonical;
     expect(stored).toMatchObject({
       sessionId: ticket.sessionId,
       gameId: ticket.gameId,
@@ -248,6 +258,22 @@ describe('POST /results', () => {
     expect(store.consumeTicket(ticket.sessionId)).not.toBeNull();
   });
 
+  it('rejects a non-RPR action shape without consuming the ticket', async () => {
+    const api = app();
+    const ticket = makeTicket();
+    store.saveTicket(ticket);
+    const trace = new Uint8Array([1, 0, 0, 0, 1, 12, 0, 0, 0]);
+    const submission = await validSubmission({ ticket });
+    submission.inputTrace = bytesToBase64(trace);
+    submission.claimedResult.inputTraceHash = await sha256HexBytes(trace);
+
+    const response = await postResult(api, submission);
+    expect(response.status).toBe(422);
+    expect((await response.json()).reason).toMatch(/schema mismatch/i);
+    expect(store.consumeTicket(ticket.sessionId)).not.toBeNull();
+    expect(store.getReviewResults()).toEqual([]);
+  });
+
   it.each([
     ['score', 99],
     ['outcome', 'win'],
@@ -288,6 +314,39 @@ describe('POST /results', () => {
     const second = await postResult(api, submission);
     expect(second.status).toBe(422);
     expect((await second.json()).reason).toMatch(/used/i);
+  });
+
+  it('consumes and review-flags a structurally valid trace that ends before KO', async () => {
+    const api = app();
+    const ticket = makeTicket();
+    store.saveTicket(ticket);
+    const trace = makeTrace(10);
+    const submission = await validSubmission({ ticket });
+    submission.inputTrace = bytesToBase64(trace);
+    submission.claimedResult.inputTraceHash = await sha256HexBytes(trace);
+
+    const response = await postResult(api, submission);
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ accepted: false, flagged: true });
+    expect(store.consumeTicket(ticket.sessionId)).toBeNull();
+    expect(store.getReviewResults()).toHaveLength(1);
+  });
+
+  it('consumes and review-flags input appended after the exact terminal frame', async () => {
+    const api = app();
+    const ticket = makeTicket();
+    store.saveTicket(ticket);
+    const fixture = await terminalRprFixture(ticket.seed);
+    const trace = appendNeutralFrame(fixture.trace);
+    const submission = await validSubmission({ ticket });
+    submission.inputTrace = bytesToBase64(trace);
+    submission.claimedResult.inputTraceHash = await sha256HexBytes(trace);
+
+    const response = await postResult(api, submission);
+    expect(response.status).toBe(422);
+    expect((await response.json()).reason).toMatch(/terminal frame/i);
+    expect(store.consumeTicket(ticket.sessionId)).toBeNull();
+    expect(store.getReviewResults()).toHaveLength(1);
   });
 });
 
@@ -345,14 +404,17 @@ describe('ticket signing and RPR verification', () => {
   });
 
   it('returns SHA-256 terminal hash and complete canonical result', async () => {
-    const trace = makeTrace(10);
-    const replay = await verifyRpr(7777, trace);
+    const fixture = await terminalRprFixture(7777);
+    const replay = await verifyRpr(7777, decodeRprTrace(fixture.trace, 18_000).inputs);
     expect(replay.replayHash).toMatch(/^[0-9a-f]{64}$/);
-    expect(replay).toMatchObject({
-      outcome: 'loss',
-      score: 0,
-      stats: { damageDealt: 0, damageTaken: 0, frames: 10 },
-      durationMs: Math.round(10 * (1000 / 60)),
-    });
+    expect(replay).toEqual(fixture.canonical);
   });
 });
+
+function appendNeutralFrame(trace: Uint8Array): Uint8Array {
+  const result = new Uint8Array(trace.length + 2);
+  result.set(trace);
+  const view = new DataView(result.buffer);
+  view.setUint32(1, view.getUint32(1, false) + 1, false);
+  return result;
+}

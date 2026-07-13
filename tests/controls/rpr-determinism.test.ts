@@ -1,252 +1,143 @@
 import { describe, expect, it } from 'vitest';
+import { createV1FightState } from '@rpr/content';
 import {
-  CombatEngine,
-  BogdanoffBossBrain,
-  NEUTRAL_INPUT,
-  serializeGameState,
-  type CombatInput,
-  type GameState,
-} from '@rpr/sim';
-import {
-  bogdanoffCpuProfile,
-  bogdanoffDefinition,
-  createV1FightState,
-  sminemDefinition,
-  v1Moves,
-} from '@rpr/content';
-import { TraceRecorder, unpackTrace, type InputFrame, type InputSource } from '@rpr/controls';
-
-/**
- * Determinism fixture for Rug Pull Rumble (Req 8.1, 8.7).
- *
- * The fight is fully deterministic given (seed, playerInputs): the CPU brain
- * reseeds from `state.seed` on every step, so the same seed + trace produces the
- * same terminal state on any runtime. This test is the CI tripwire — if a
- * refactor or tuning change alters sim behavior, the terminal hash changes and
- * the test fails, alerting the developer to update the fixture.
- *
- * Flow:
- * 1. Run the fight to KO with a fixed seed + scripted player inputs.
- * 2. Record every player input frame via TraceRecorder.
- * 3. Hash the terminal sim state (replayHash).
- * 4. Pack + unpack the trace, replay through a FRESH engine, and assert the
- *    terminal hash matches.
- * 5. Assert the hardcoded expected hash (the fixture snapshot).
- */
-
-/** RPR button set — mirrors the game's RprButton type for trace recording. */
-type RprButton =
-  | 'left' | 'right' | 'up' | 'down' | 'block'
-  | 'lightHigh' | 'lightLow' | 'heavyHigh' | 'heavyLow'
-  | 'special' | 'super' | 'start' | 'mute';
+  RprMatch,
+  RprReplayError,
+  decodeRprTrace,
+  deriveRprCanonicalResult,
+  replayRprInputs,
+  serializeRprTerminalState,
+} from '@rpr/rug-pull-rumble-core';
+import { terminalRprFixture } from '../fixtures/rpr-terminal';
 
 const FIXTURE_SEED = 12345;
 
-/**
- * Scripted player inputs that eventually lead to a KO. The player walks forward
- * and attacks to exercise move resolution + hit detection; the CPU brain fights
- * back deterministically.
- */
-function makeScriptedInput(): CombatInput[] {
-  const walk: CombatInput = { ...NEUTRAL_INPUT, horizontal: 1 };
-  const lightHigh: CombatInput = { ...NEUTRAL_INPUT, lightHigh: true };
-  const heavyHigh: CombatInput = { ...NEUTRAL_INPUT, heavyHigh: true };
-  const block: CombatInput = { ...NEUTRAL_INPUT, block: true };
+describe('canonical RPR core', () => {
+  it('produces one canonical result for live stepping, packed replay, and API replay', async () => {
+    const fixture = await terminalRprFixture(FIXTURE_SEED);
+    const decoded = decodeRprTrace(fixture.trace, 6_000);
+    const match = new RprMatch(FIXTURE_SEED);
+    for (const input of decoded.inputs) match.step(input);
 
-  // 30 frames walk forward, then alternate attacks for the rest
-  const inputs: CombatInput[] = [];
-  for (let i = 0; i < 30; i++) inputs.push(walk);
-  // Pattern: 5 light, 5 heavy, 5 block, repeat
-  for (let i = 0; i < 10000; i++) {
-    const phase = i % 15;
-    if (phase < 5) inputs.push(lightHigh);
-    else if (phase < 10) inputs.push(heavyHigh);
-    else inputs.push(block);
-  }
-  return inputs;
-}
+    const liveResult = await deriveRprCanonicalResult(match.state);
+    const replayResult = await replayRprInputs(FIXTURE_SEED, decoded.inputs);
+    expect(liveResult).toEqual(fixture.canonical);
+    expect(replayResult).toEqual(fixture.canonical);
+  });
 
-/** A synthetic InputSource that replays a fixed sequence of frames. */
-function scriptedSource(frames: InputFrame<RprButton>[]): InputSource<RprButton> {
-  let idx = 0;
-  return {
-    available: true,
-    read(): InputFrame<RprButton> {
-      return frames[Math.min(idx++, frames.length - 1)]!;
-    },
-  };
-}
+  it('pins the V1 terminal representation and complete result fixture', async () => {
+    const fixture = await terminalRprFixture(FIXTURE_SEED);
+    expect(fixture.canonical).toMatchInlineSnapshot(`
+      {
+        "durationMs": 11283,
+        "outcome": "loss",
+        "replayHash": "254078a57fb035a7bfefeff53e62ec9723115f311a033ef99b6e92025d03d7b4",
+        "score": 555,
+        "stats": {
+          "damageDealt": 111,
+          "damageTaken": 100,
+          "frames": 677,
+        },
+      }
+    `);
+  });
 
-/** Converts a CombatInput to an InputFrame<RprButton> for trace recording. */
-function combatInputToFrame(input: CombatInput): InputFrame<RprButton> {
-  const buttons: Record<RprButton, boolean> = {
-    left: input.horizontal === -1,
-    right: input.horizontal === 1,
-    up: input.vertical === -1,
-    down: input.vertical === 1,
-    block: input.block,
-    lightHigh: input.lightHigh,
-    lightLow: input.lightLow,
-    heavyHigh: input.heavyHigh,
-    heavyLow: input.heavyLow,
-    special: input.special,
-    super: input.super,
-    start: false,
-    mute: false,
-  };
-  return { buttons, axes: {} };
-}
-
-describe('RPR determinism fixture (Req 8.1, 8.7)', () => {
-  const scriptedCombatInputs = makeScriptedInput();
-
-  it('the fight reaches KO within a reasonable frame budget', () => {
-    const engine = new CombatEngine({
-      createInitialState: (seed) => createV1FightState(seed),
-      definitions: [sminemDefinition, bogdanoffDefinition],
-      moves: v1Moves,
-      seed: FIXTURE_SEED,
+  it('maps the compatibility-locked 13-button positional trace', () => {
+    const trace = encodedTrace(1, 13, 0, [0b01011001, 0b00000101]);
+    const input = decodeRprTrace(trace, 1).inputs[0]!;
+    expect(input).toEqual({
+      horizontal: -1,
+      vertical: 1,
+      block: true,
+      lightHigh: false,
+      lightLow: true,
+      heavyHigh: false,
+      heavyLow: true,
+      special: false,
+      super: true,
     });
-    const brain = new BogdanoffBossBrain();
-
-    let steps = 0;
-    while (engine.state.status === 'active' && steps < scriptedCombatInputs.length) {
-      const playerInput = scriptedCombatInputs[steps] ?? NEUTRAL_INPUT;
-      const cpuInput = brain.decide(engine.state, bogdanoffCpuProfile);
-      engine.step(playerInput, cpuInput);
-      steps++;
-    }
-
-    expect(engine.state.status).not.toBe('active');
-    expect(steps).toBeLessThan(6000); // Under 100s at 60fps — reasonable for a scripted fight
-    expect(steps).toBeGreaterThan(60); // At least 1 second of fighting
   });
 
-  it('produces a stable terminal hash for the same seed + inputs', async () => {
-    // Run 1
-    const run1 = runFight(FIXTURE_SEED, scriptedCombatInputs);
-    // Run 2 — fresh engine, same seed + inputs
-    const run2 = runFight(FIXTURE_SEED, scriptedCombatInputs);
-
-    expect(run1.replayHash).toBe(run2.replayHash);
-    expect(run1.status).toBe(run2.status);
-    expect(run1.frames).toBe(run2.frames);
+  it.each([
+    [12, 0],
+    [13, 1],
+  ])('rejects a non-RPR trace shape (%i buttons, %i axes)', (buttons, axes) => {
+    const frameSize = Math.ceil(buttons / 8) + axes * 2;
+    expect(() => decodeRprTrace(encodedTrace(1, buttons, axes, new Array(frameSize).fill(0)), 1))
+      .toThrow(/schema mismatch|axis count/i);
   });
 
-  it('trace round-trip: pack → unpack → replay yields the same terminal hash', async () => {
-    // Live run with trace recording
-    const recorder = new TraceRecorder<RprButton>();
-    const frames = scriptedCombatInputs.map(combatInputToFrame);
-    const recorded = recorder.wrap(scriptedSource(frames));
-
-    const liveRun = runFightWithTrace(FIXTURE_SEED, scriptedCombatInputs, recorded);
-
-    // Pack and hash the trace
-    const packed = recorder.pack();
-    const traceHash = await recorder.hash();
-    expect(traceHash.length).toBe(64); // SHA-256 hex
-
-    // Unpack the trace and replay through a fresh engine
-    const decoded = unpackTrace(packed);
-    expect(decoded.version).toBe(1);
-    expect(decoded.frames.length).toBe(liveRun.frames);
-
-    // Reconstruct CombatInputs from decoded frames and replay
-    const replayInputs = decoded.frames.map((f) => decodeToCombatInput(f.buttons));
-    const replayRun = runFight(FIXTURE_SEED, replayInputs);
-
-    expect(replayRun.replayHash).toBe(liveRun.replayHash);
+  it('rejects canonical result derivation from an active state', async () => {
+    await expect(deriveRprCanonicalResult(createV1FightState(FIXTURE_SEED)))
+      .rejects.toMatchObject({ code: 'incomplete-trace' });
   });
 
-  it('different seeds produce different fights (the hash is sensitive to seed)', () => {
-    const runA = runFight(FIXTURE_SEED, scriptedCombatInputs);
-    const runB = runFight(FIXTURE_SEED + 1, scriptedCombatInputs);
-    // The terminal hash should differ for different seeds (extremely likely)
-    expect(runA.replayHash).not.toBe(runB.replayHash);
+  it('derives win and loss rules from terminal state through one function', async () => {
+    const win = createV1FightState(1);
+    win.status = 'player_win';
+    win.frame = 120;
+    win.player.health = Math.floor(win.player.maxHealth / 2);
+    win.cpu.health = 0;
+    const winResult = await deriveRprCanonicalResult(win);
+    expect(winResult).toMatchObject({
+      outcome: 'win',
+      score: 1000 + Math.floor((win.player.health / win.player.maxHealth) * 500),
+      stats: {
+        damageDealt: win.cpu.maxHealth,
+        damageTaken: win.player.maxHealth - win.player.health,
+        frames: 120,
+      },
+      durationMs: 2000,
+    });
+
+    const loss = createV1FightState(1);
+    loss.status = 'cpu_win';
+    loss.frame = 60;
+    loss.player.health = 0;
+    loss.cpu.health = loss.cpu.maxHealth - 25;
+    const lossResult = await deriveRprCanonicalResult(loss);
+    expect(lossResult).toMatchObject({
+      outcome: 'loss',
+      score: 125,
+      stats: { damageDealt: 25, damageTaken: loss.player.maxHealth, frames: 60 },
+      durationMs: 1000,
+    });
   });
 
-  it('serializeGameState is deterministic and stable', () => {
-    const state1 = createV1FightState(FIXTURE_SEED);
-    const state2 = createV1FightState(FIXTURE_SEED);
-    expect(serializeGameState(state1)).toBe(serializeGameState(state2));
+  it('rejects inputs that end before or continue after the terminal frame', async () => {
+    const fixture = await terminalRprFixture(FIXTURE_SEED);
+    const inputs = decodeRprTrace(fixture.trace, 6_000).inputs;
+    await expect(replayRprInputs(FIXTURE_SEED, inputs.slice(0, -1)))
+      .rejects.toEqual(expect.objectContaining<RprReplayError>({ code: 'incomplete-trace' }));
+    await expect(replayRprInputs(FIXTURE_SEED, [...inputs, inputs[inputs.length - 1]!]))
+      .rejects.toEqual(expect.objectContaining<RprReplayError>({ code: 'trailing-input' }));
+  });
+
+  it('keeps terminal serialization stable and seed-sensitive', async () => {
+    const first = await terminalRprFixture(FIXTURE_SEED);
+    const repeated = await terminalRprFixture(FIXTURE_SEED);
+    const otherSeed = await terminalRprFixture(FIXTURE_SEED + 1);
+    expect(first.canonical.replayHash).toBe(repeated.canonical.replayHash);
+    expect(first.canonical.replayHash).not.toBe(otherSeed.canonical.replayHash);
+
+    const state = createV1FightState(3);
+    state.status = 'cpu_win';
+    expect(serializeRprTerminalState(state)).toBe(serializeRprTerminalState(state));
   });
 });
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-interface RunResult {
-  replayHash: string;
-  status: GameState['status'];
-  frames: number;
-}
-
-function runFight(seed: number, playerInputs: CombatInput[]): RunResult {
-  const engine = new CombatEngine({
-    createInitialState: (s) => createV1FightState(s),
-    definitions: [sminemDefinition, bogdanoffDefinition],
-    moves: v1Moves,
-    seed,
-  });
-  const brain = new BogdanoffBossBrain();
-
-  let steps = 0;
-  while (engine.state.status === 'active' && steps < playerInputs.length) {
-    const input = playerInputs[steps] ?? NEUTRAL_INPUT;
-    const cpuInput = brain.decide(engine.state, bogdanoffCpuProfile);
-    engine.step(input, cpuInput);
-    steps++;
-  }
-
-  return {
-    replayHash: serializeGameState(engine.state),
-    status: engine.state.status,
-    frames: steps,
-  };
-}
-
-function runFightWithTrace(
-  seed: number,
-  playerInputs: CombatInput[],
-  source: InputSource<RprButton>,
-): RunResult {
-  const engine = new CombatEngine({
-    createInitialState: (s) => createV1FightState(s),
-    definitions: [sminemDefinition, bogdanoffDefinition],
-    moves: v1Moves,
-    seed,
-  });
-  const brain = new BogdanoffBossBrain();
-
-  // The source is polled each step to drive the trace recording; the actual
-  // CombatInput comes from the scripted array (the source is just for recording).
-  let steps = 0;
-  while (engine.state.status === 'active' && steps < playerInputs.length) {
-    source.read(); // record the frame
-    const input = playerInputs[steps] ?? NEUTRAL_INPUT;
-    const cpuInput = brain.decide(engine.state, bogdanoffCpuProfile);
-    engine.step(input, cpuInput);
-    steps++;
-  }
-
-  return {
-    replayHash: serializeGameState(engine.state),
-    status: engine.state.status,
-    frames: steps,
-  };
-}
-
-function decodeToCombatInput(buttons: Record<string, boolean>): CombatInput {
-  // The decoder assigns positional keys b0..bN matching the RprButton order
-  // captured at recording time: left,right,up,down,block,lh,ll,hh,hl,sp,su,st,mu
-  return {
-    horizontal: (buttons['b1'] ? 1 : 0) - (buttons['b0'] ? 1 : 0) as CombatInput['horizontal'],
-    vertical: (buttons['b3'] ? 1 : 0) - (buttons['b2'] ? 1 : 0) as CombatInput['vertical'],
-    block: buttons['b4'] ?? false,
-    lightHigh: buttons['b5'] ?? false,
-    lightLow: buttons['b6'] ?? false,
-    heavyHigh: buttons['b7'] ?? false,
-    heavyLow: buttons['b8'] ?? false,
-    special: buttons['b9'] ?? false,
-    super: buttons['b10'] ?? false,
-  };
+function encodedTrace(
+  frames: number,
+  buttonCount: number,
+  axisCount: number,
+  payload: number[],
+): Uint8Array {
+  const bytes = new Uint8Array(7 + payload.length);
+  const view = new DataView(bytes.buffer);
+  bytes[0] = 1;
+  view.setUint32(1, frames, false);
+  bytes[5] = buttonCount;
+  bytes[6] = axisCount;
+  bytes.set(payload, 7);
+  return bytes;
 }

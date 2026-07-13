@@ -5,12 +5,17 @@ import { test, expect } from '@playwright/test';
  *
  * Verifies the dev-only replay viewer: paste form appears on `#replay`, a trace
  * loads and creates a canvas, playback controls work, and the frame counter
- * advances. Uses a minimal synthetic trace (1 neutral frame).
+ * advances. Uses a narrow synthetic trace because this test covers playback
+ * controls rather than ranked verification.
  */
 
-/** Minimal valid trace: version=1, 1 frame, 13 buttons (2 bytes), 0 axes, all neutral. */
+/** Valid trace: version=1, 120 neutral frames, 13 buttons (2 bytes), 0 axes. */
 function minimalTraceBase64(): string {
-  const bytes = Buffer.from([1, 0, 0, 0, 1, 13, 0, 0, 0]);
+  const bytes = Buffer.alloc(7 + 120 * 2);
+  bytes[0] = 1;
+  bytes.writeUInt32BE(120, 1);
+  bytes[5] = 13;
+  bytes[6] = 0;
   return bytes.toString('base64');
 }
 
@@ -39,7 +44,7 @@ test('loading a trace creates a canvas and playback advances the frame counter',
   await expect(page.locator('.replay-speed').first()).toBeVisible();
   await expect(page.locator('.replay-frame-counter')).toBeVisible();
 
-  // The frame counter shows a non-zero total (the trace has 1 frame).
+  // The frame counter shows a non-zero total.
   await expect
     .poll(async () => {
       const text = await page.locator('.replay-frame-counter').textContent();

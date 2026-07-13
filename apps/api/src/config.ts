@@ -3,6 +3,7 @@
  * overrides come from environment variables.
  */
 import { execSync } from 'node:child_process';
+import { RPR_GAME_ID, RPR_GAME_VERSION } from '@rpr/rug-pull-rumble-core/identity';
 
 export interface ApiConfig {
   port: number;
@@ -33,13 +34,13 @@ export function loadConfig(): ApiConfig {
     ticketTtlMs: Number(process.env.TICKET_TTL_MS ?? 5 * 60 * 1000),
     rateLimitPerMin: Number(process.env.RATE_LIMIT_PER_MIN ?? 30),
     supportedGameBuilds: {
-      'rug-pull-rumble': {
-        '0.1.0': configuredBuilds,
+      [RPR_GAME_ID]: {
+        [RPR_GAME_VERSION]: configuredBuilds,
       },
     },
     leaderboardCategories: {
       'rpr.score': {
-        gameId: 'rug-pull-rumble',
+        gameId: RPR_GAME_ID,
         metric: 'score',
         order: 'desc',
       },

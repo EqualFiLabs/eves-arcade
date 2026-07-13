@@ -15,6 +15,7 @@
     "@rpr/content": "workspace:*",
     "@rpr/controls": "workspace:*",
     "@rpr/protocol": "workspace:*",
+    "@rpr/rug-pull-rumble-core": "workspace:*",
     "@rpr/sim": "workspace:*",
     "phaser": "^4.2.0"
   },

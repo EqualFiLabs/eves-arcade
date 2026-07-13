@@ -1,4 +1,5 @@
 import type { ArcadeGameManifest } from '../../arcade/types';
+import { RPR_GAME_ID, RPR_GAME_VERSION } from '@rpr/rug-pull-rumble-core/identity';
 
 /**
  * Rug Pull Rumble manifest (Req 2.1, 3.5). The shell reads this synchronously
@@ -9,10 +10,10 @@ import type { ArcadeGameManifest } from '../../arcade/types';
  * shows its rotate prompt without pausing when support is absent.
  */
 export const rugPullRumbleManifest: ArcadeGameManifest = {
-  id: 'rug-pull-rumble',
+  id: RPR_GAME_ID,
   title: 'Rug Pull Rumble',
   tagline: 'Sminem vs Bogdanoff — proof of fight',
-  version: '0.1.0',
+  version: RPR_GAME_VERSION,
   assetPrefix: 'rpr',
   orientation: 'landscape',
   supportsPause: false,
