@@ -15,7 +15,9 @@ export async function submitResult(
   game: GameIdentity,
   buildVersion: string,
   ticket: SessionTicket,
+  options: { signal?: AbortSignal } = {},
 ): Promise<SubmissionResponse | null> {
+  throwIfAborted(options.signal);
   const evidence = completion.evidence.kind === 'none'
     ? { kind: 'none' as const }
     : {
@@ -25,6 +27,7 @@ export async function submitResult(
         data: toBase64(completion.evidence.bytes),
         hash: await sha256HexBytes(completion.evidence.bytes),
       };
+  throwIfAborted(options.signal);
   const claimedResult: GameResultClaim = {
     game,
     buildVersion,
@@ -44,12 +47,28 @@ export async function submitResult(
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
+      signal: options.signal,
     });
     return await response.json() as SubmissionResponse;
   } catch {
+    if (options.signal?.aborted) {
+      throw new DOMException(
+        options.signal.reason instanceof Error ? options.signal.reason.message : 'Operation aborted',
+        'AbortError',
+      );
+    }
     // Network failures are represented explicitly by null so the shell can
     // preserve the local result without falsely labelling it verified.
     return null;
+  }
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) {
+    throw new DOMException(
+      signal.reason instanceof Error ? signal.reason.message : 'Operation aborted',
+      'AbortError',
+    );
   }
 }
 

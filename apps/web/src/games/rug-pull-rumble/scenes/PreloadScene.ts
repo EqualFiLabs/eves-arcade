@@ -15,6 +15,24 @@ export class PreloadScene extends Phaser.Scene {
   private box!: Phaser.GameObjects.Graphics;
   private percentText!: Phaser.GameObjects.Text;
   private failed = 0;
+  private readonly onProgress = (value: number): void => {
+    const { width, height } = this.scale;
+    this.bar.clear();
+    this.bar.fillStyle(0x7cf6a4, 1);
+    this.bar.fillRoundedRect(width / 2 - 214, height / 2 - 19, 428 * value, 38, 6);
+    this.percentText.setText(`${Math.round(value * 100)}%`);
+  };
+  private readonly onLoadError = (file: { key?: string }): void => {
+    // Placeholder assets may be absent; record but keep going.
+    this.failed += 1;
+    if (file?.key) console.warn(`[preload] missing asset: ${file.key}`);
+  };
+  private readonly onLoadComplete = (): void => {
+    this.removeLoaderListeners();
+    this.bar.destroy();
+    this.box.destroy();
+    this.percentText.destroy();
+  };
 
   constructor() {
     super({ key: 'PreloadScene' });
@@ -38,24 +56,10 @@ export class PreloadScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.load.on('progress', (value: number) => {
-      this.bar.clear();
-      this.bar.fillStyle(0x7cf6a4, 1);
-      this.bar.fillRoundedRect(width / 2 - 214, height / 2 - 19, 428 * value, 38, 6);
-      this.percentText.setText(`${Math.round(value * 100)}%`);
-    });
-
-    this.load.on('loaderror', (file: { key?: string }) => {
-      // Placeholder assets may be absent; record but keep going.
-      this.failed += 1;
-      if (file?.key) console.warn(`[preload] missing asset: ${file.key}`);
-    });
-
-    this.load.on('complete', () => {
-      this.bar.destroy();
-      this.box.destroy();
-      this.percentText.destroy();
-    });
+    this.load.on('progress', this.onProgress);
+    this.load.on('loaderror', this.onLoadError);
+    this.load.once('complete', this.onLoadComplete);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.removeLoaderListeners, this);
 
     for (const entry of assetManifest) {
       this.loadEntry(entry);
@@ -85,5 +89,11 @@ export class PreloadScene extends Phaser.Scene {
 
   create(): void {
     this.scene.start('MenuScene');
+  }
+
+  private removeLoaderListeners(): void {
+    this.load.off('progress', this.onProgress);
+    this.load.off('loaderror', this.onLoadError);
+    this.load.off('complete', this.onLoadComplete);
   }
 }

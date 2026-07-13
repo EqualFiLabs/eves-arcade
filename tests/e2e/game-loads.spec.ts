@@ -34,26 +34,37 @@ test('selecting a game launches its own Phaser instance into the canvas', async 
   await expect.poll(() => gameBooted(page)).toBe(true);
 });
 
-test('teardown clears the instance; a second launch starts clean (Property 3)', async ({ page }) => {
+test('repeated teardown and relaunch keeps one clean game instance (Property 3)', async ({ page }) => {
   await page.goto('/');
-  await page.locator('.arcade-game').first().click();
-  await expect.poll(() => gameBooted(page)).toBe(true);
-  const first = await page.evaluate(() => (window as unknown as { __game?: object }).__game);
 
-  // Exit to arcade: the shell destroys the Phaser instance + canvas.
-  await page.locator('.arcade-back').click();
-  await expect.poll(() => page.locator('canvas').count()).toBe(0);
-  await expect(page.locator('.arcade-game')).toBeVisible();
-  await expect
-    .poll(async () => page.evaluate(() => (window as unknown as { __game?: object }).__game))
-    .toBeUndefined();
+  for (let launch = 0; launch < 3; launch += 1) {
+    await page.locator('.arcade-game').first().click();
+    await expect.poll(() => runningSceneKey(page)).toBe('MenuScene');
+    await expect(page.locator('canvas')).toHaveCount(1);
+    const freshInstance = await page.evaluate(() => {
+      const debug = window as unknown as { __game?: object; __previousGame?: object };
+      const fresh = Boolean(debug.__game) && debug.__game !== debug.__previousGame;
+      debug.__previousGame = debug.__game;
+      return fresh;
+    });
+    expect(freshInstance).toBe(true);
 
-  // Relaunch: a fresh instance reaches the menu again with no leak from the first.
-  await page.locator('.arcade-game').first().click();
-  await expect.poll(() => runningSceneKey(page)).toBe('MenuScene');
-  const second = await page.evaluate(() => (window as unknown as { __game?: object }).__game);
-  expect(second).toBeTruthy();
-  expect(second).not.toBe(first);
+    await page.locator('.arcade-back').click();
+    await expect.poll(() => page.locator('canvas').count()).toBe(0);
+    await expect(page.locator('.arcade-game')).toBeVisible();
+    await expect
+      .poll(async () => page.evaluate(() => (window as unknown as {
+        __game?: object;
+        __engine?: object;
+        __effects?: object;
+      }).__game))
+      .toBeUndefined();
+    const debugGlobals = await page.evaluate(() => {
+      const debug = window as unknown as { __engine?: object; __effects?: object };
+      return { engine: debug.__engine, effects: debug.__effects };
+    });
+    expect(debugGlobals).toEqual({ engine: undefined, effects: undefined });
+  }
 });
 
 test('scene flow reaches the menu and the fight steps the simulation', async ({ page }) => {

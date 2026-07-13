@@ -37,12 +37,14 @@ export function orientationSatisfied(manifest: Pick<ArcadeGameManifest, 'orienta
  */
 export function onOrientationChange(cb: () => void): () => void {
   if (typeof window === 'undefined') return () => {};
-  const mql = window.matchMedia('(orientation: portrait)');
+  const mql = typeof window.matchMedia === 'function'
+    ? window.matchMedia('(orientation: portrait)')
+    : null;
   const handler = () => cb();
-  mql.addEventListener('change', handler);
+  mql?.addEventListener('change', handler);
   window.addEventListener('resize', handler);
   return () => {
-    mql.removeEventListener('change', handler);
+    mql?.removeEventListener('change', handler);
     window.removeEventListener('resize', handler);
   };
 }

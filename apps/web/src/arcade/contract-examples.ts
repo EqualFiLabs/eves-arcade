@@ -7,7 +7,7 @@ import type { ArcadeGameManifest, ArcadeGameModule } from './types';
 
 const inertModule: ArcadeGameModule = {
   launch() {
-    return { ready: Promise.resolve(), destroy() {} };
+    return { ready: Promise.resolve(), async destroy() {} };
   },
 };
 

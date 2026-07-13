@@ -27,6 +27,7 @@ function boot(): void {
 
   const shell = new ArcadeShell(root);
   shell.start();
+  window.addEventListener('pagehide', () => { void shell.destroy(); }, { once: true });
 }
 
 if (document.readyState === 'loading') {

@@ -23,12 +23,23 @@ import { FightScene } from './scenes/FightScene';
  */
 export const rugPullRumbleModule: ArcadeGameModule = {
   launch(ctx: ArcadeGameContext): ArcadeGameHandle {
-    let resolveReady!: () => void;
-    let rejectReady!: (reason: Error) => void;
+    let settleReady = false;
+    let resolveReadyPromise!: () => void;
+    let rejectReadyPromise!: (reason: Error) => void;
     const ready = new Promise<void>((resolve, reject) => {
-      resolveReady = resolve;
-      rejectReady = reject;
+      resolveReadyPromise = resolve;
+      rejectReadyPromise = reject;
     });
+    const resolveReady = () => {
+      if (settleReady) return;
+      settleReady = true;
+      resolveReadyPromise();
+    };
+    const rejectReady = (reason: Error) => {
+      if (settleReady) return;
+      settleReady = true;
+      rejectReadyPromise(reason);
+    };
 
     const game = new Phaser.Game({
       ...createGameConfig({
@@ -55,28 +66,48 @@ export const rugPullRumbleModule: ArcadeGameModule = {
     }
 
     let destroyed = false;
+    let destroyPromise: Promise<void> | null = null;
     const suspended = new Set<SuspensionReason>();
-    return {
+    const handle: ArcadeGameHandle = {
       ready,
       suspend(reason) {
+        if (destroyed) return;
         suspended.add(reason);
         if (!game.isPaused) game.pause();
       },
       resume(reason) {
+        if (destroyed) return;
         suspended.delete(reason);
         if (suspended.size === 0 && game.isPaused) game.resume();
       },
       destroy() {
-        if (destroyed) return;
+        if (destroyPromise) return destroyPromise;
         destroyed = true;
-        game.destroy(true);
-        if (typeof window !== 'undefined') {
-          (window as unknown as { __game?: Phaser.Game }).__game = undefined;
-        }
-        // Phaser removes its canvas on destroy(true), but defensively clear any
-        // leftover canvas inside the mount element.
-        while (ctx.mount.firstChild) ctx.mount.removeChild(ctx.mount.lastChild!);
+        rejectReady(new DOMException('Game destroyed before ready', 'AbortError'));
+        ctx.signal.removeEventListener('abort', onAbort);
+        destroyPromise = new Promise<void>((resolve) => {
+          game.events.once(Phaser.Core.Events.DESTROY, () => {
+            if (typeof window !== 'undefined') {
+              const debug = window as unknown as {
+                __game?: Phaser.Game;
+                __engine?: unknown;
+                __effects?: unknown;
+              };
+              if (debug.__game === game) debug.__game = undefined;
+              debug.__engine = undefined;
+              debug.__effects = undefined;
+            }
+            ctx.mount.replaceChildren();
+            resolve();
+          });
+          game.destroy(true, false);
+        });
+        return destroyPromise;
       },
     };
+    const onAbort = () => { void handle.destroy(); };
+    ctx.signal.addEventListener('abort', onAbort, { once: true });
+    if (ctx.signal.aborted) void handle.destroy();
+    return handle;
   },
 };

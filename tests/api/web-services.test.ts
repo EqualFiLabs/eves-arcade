@@ -6,6 +6,7 @@ const GAME = { id: 'rug-pull-rumble', version: '0.1.0' } as const;
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -43,4 +44,36 @@ describe('web session service', () => {
     ));
     await expect(fetchSession(GAME, 'bad')).rejects.toBeInstanceOf(SessionRequestRejectedError);
   });
+
+  it('propagates an explicit caller abort instead of starting offline play', async () => {
+    globalThis.fetch = abortablePendingFetch();
+    const controller = new AbortController();
+    const request = fetchSession(GAME, 'test', { signal: controller.signal });
+    controller.abort(new Error('player cancelled'));
+
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('falls back to unranked play when the session deadline expires', async () => {
+    vi.useFakeTimers();
+    globalThis.fetch = abortablePendingFetch();
+    const request = fetchSession(GAME, 'test', { timeoutMs: 10 });
+    await vi.advanceTimersByTimeAsync(10);
+
+    await expect(request).resolves.toMatchObject({
+      ranking: { kind: 'unranked', reason: 'service-unavailable' },
+    });
+  });
 });
+
+function abortablePendingFetch(): typeof fetch {
+  return vi.fn((_input: RequestInfo | URL, init?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+    const signal = init?.signal;
+    if (!signal) return;
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  }));
+}

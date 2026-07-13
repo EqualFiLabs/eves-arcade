@@ -71,11 +71,18 @@ export class FightScene extends Phaser.Scene {
   private effects!: EffectsRenderer;
   private fightCam!: FightCamera;
   private hudCam!: Phaser.Cameras.Scene2D.Camera;
+  private resultTimer: Phaser.Time.TimerEvent | null = null;
 
   private accumulator = 0;
   private settled = false;
   private muted = false;
   private resultReported = false;
+  private readonly toggleMute = (): void => {
+    this.muted = !this.muted;
+    this.game.registry.set('muted', this.muted);
+    const ctx = this.game.registry.get('arcade') as ArcadeGameContext | undefined;
+    ctx?.updateSettings?.({ muted: this.muted });
+  };
 
   constructor() {
     super({ key: 'FightScene' });
@@ -152,11 +159,7 @@ export class FightScene extends Phaser.Scene {
 
     // M toggles mute (persisted via shell context). Enter/ESC no longer restart
     // or exit — the shell result screen and chrome bar own those flows now.
-    this.input.keyboard?.on('keydown-M', () => {
-      this.muted = !this.muted;
-      this.game.registry.set('muted', this.muted);
-      ctx?.updateSettings?.({ muted: this.muted });
-    });
+    this.input.keyboard?.on('keydown-M', this.toggleMute);
 
     (window as unknown as { __engine?: unknown }).__engine = this.match;
     (window as unknown as { __effects?: unknown }).__effects = this.effects;
@@ -182,7 +185,8 @@ export class FightScene extends Phaser.Scene {
         if (this.match.state.status !== 'active') {
           this.settled = true;
           // Let the player see the KO feedback before the shell result screen.
-          this.time.delayedCall(KO_RESULT_DELAY_MS, () => {
+          this.resultTimer = this.time.delayedCall(KO_RESULT_DELAY_MS, () => {
+            this.resultTimer = null;
             void this.reportResult();
           });
           break;
@@ -209,9 +213,10 @@ export class FightScene extends Phaser.Scene {
     this.resultReported = true;
 
     const ctx = this.game.registry.get('arcade') as ArcadeGameContext | undefined;
-    if (!ctx) return;
+    if (!ctx || ctx.signal.aborted) return;
 
     const canonical = await deriveRprCanonicalResult(this.match.state);
+    if (ctx.signal.aborted) return;
     const won = canonical.outcome === 'win';
     const shareLines = won ? shareCopy.win : shareCopy.loss;
     const links = distributionHooks
@@ -242,6 +247,9 @@ export class FightScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    this.input.keyboard?.off('keydown-M', this.toggleMute);
+    this.resultTimer?.remove(false);
+    this.resultTimer = null;
     for (const s of this.sources) s.destroy?.();
     this.sources = [];
     this.stage?.destroy();
@@ -249,6 +257,10 @@ export class FightScene extends Phaser.Scene {
     this.cpuRenderer?.destroy();
     this.hud?.destroy();
     this.effects?.destroy();
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __engine?: unknown; __effects?: unknown }).__engine = undefined;
+      (window as unknown as { __engine?: unknown; __effects?: unknown }).__effects = undefined;
+    }
   }
 }
 
