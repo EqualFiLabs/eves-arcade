@@ -14,7 +14,7 @@ import {
   sminemDefinition,
   v1Moves,
 } from '@rpr/content';
-import { RprMatch, decodeRprTrace } from '@rpr/rug-pull-rumble-core';
+import { RPR_MAX_TRACE_FRAMES, RprMatch, decodeRprTrace } from '@rpr/rug-pull-rumble-core';
 import { FighterRenderer } from '../renderers/FighterRenderer';
 import { HudView } from '../renderers/HudView';
 import { StageRenderer } from '../renderers/StageRenderer';
@@ -63,7 +63,7 @@ export class ReplayScene extends Phaser.Scene {
     const data = this.game.registry.get('replay') as { seed: number; trace: Uint8Array } | undefined;
     if (!data) throw new Error('ReplayScene: missing replay data in registry');
 
-    const decoded = decodeRprTrace(data.trace, 1_000_000);
+    const decoded = decodeRprTrace(data.trace, RPR_MAX_TRACE_FRAMES);
     this.traceInputs = decoded.inputs;
     this.frameIndex = 0;
     this.accumulator = 0;

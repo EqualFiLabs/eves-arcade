@@ -5,7 +5,6 @@ import { Store } from './store';
 import { signTicket, verifyTicketSig, newSessionId } from './crypto';
 import { verifyRpr, type VerifyResult } from './verify/rpr';
 import {
-  TRACE_ENCODING_VERSION,
   sha256HexBytes,
   type LeaderboardResponse,
   type SessionResponse,
@@ -14,8 +13,10 @@ import {
 import {
   RPR_INPUT_SCHEMA,
   RPR_GAME_ID,
+  RPR_MAX_TRACE_FRAMES,
   RPR_RESULT_SCHEMA,
   RPR_TRACE_ENCODING_VERSION,
+  RPR_TRACE_LIMITS,
   decodeRprTrace,
 } from '@rpr/rug-pull-rumble-core';
 import {
@@ -118,9 +119,9 @@ export function createApp(deps: AppDeps): Hono {
 
     let traceBytes: Uint8Array;
     let replayInputs: ReturnType<typeof decodeRprTrace>['inputs'];
-    const maxFrames = Math.ceil(config.ticketTtlMs / SIM_STEP_MS);
+    const maxFrames = RPR_MAX_TRACE_FRAMES;
     try {
-      traceBytes = decodeBase64Strict(submission.evidence.data);
+      traceBytes = decodeBase64Strict(submission.evidence.data, RPR_TRACE_LIMITS.maxBytes);
       const decoded = decodeRprTrace(traceBytes, maxFrames);
       if (decoded.version !== submission.evidence.encodingVersion) {
         return reject(c, 'Trace version does not match its envelope', false);
@@ -178,7 +179,7 @@ export function createApp(deps: AppDeps): Hono {
       stats: canonical.metrics,
       durationMs: canonical.durationMs,
       inputTrace: traceBytes,
-      traceEncodingVersion: TRACE_ENCODING_VERSION,
+      traceEncodingVersion: RPR_TRACE_ENCODING_VERSION,
       inputTraceHash,
       replayHash: canonical.replayHash,
       verified: true,
@@ -214,8 +215,6 @@ export function createApp(deps: AppDeps): Hono {
 
   return app;
 }
-
-const SIM_STEP_MS = 1000 / 60;
 
 function invalidRequest(c: Context, error: unknown) {
   const reason = error instanceof RequestValidationError || error instanceof SyntaxError
@@ -285,7 +284,7 @@ function saveReviewResult(
     stats: { ...claimedResult.result.metrics },
     durationMs: claimedResult.result.durationMs,
     inputTrace: traceBytes,
-    traceEncodingVersion: TRACE_ENCODING_VERSION,
+    traceEncodingVersion: RPR_TRACE_ENCODING_VERSION,
     inputTraceHash,
     replayHash: claimedResult.result.replayHash ?? '',
     verified: false,

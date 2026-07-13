@@ -34,33 +34,60 @@ export class PointerSource<B extends string = never, X extends string = never>
   private x = 0;
   private y = 0;
   private pressed = false;
+  private activePointerId: number | null = null;
 
   private readonly onPointerDown: (e: PointerEvent) => void;
   private readonly onPointerMove: (e: PointerEvent) => void;
   private readonly onPointerUp: (e: PointerEvent) => void;
+  private readonly onPointerLoss: (e: PointerEvent) => void;
+  private readonly onBlur: () => void;
 
   constructor(options: PointerSourceOptions<B, X>) {
     this.target = options.target;
     this.axisNames = options.axes;
     this.buttonName = options.button;
 
-    this.onPointerDown = (): void => {
+    this.onPointerDown = (event): void => {
+      const pointerId = eventPointerId(event);
+      if (this.activePointerId !== null && this.activePointerId !== pointerId) return;
+      this.activePointerId = pointerId;
       this.pressed = true;
+      this.updatePosition(event);
+      try {
+        this.target.setPointerCapture(pointerId);
+      } catch {
+        // Pointer capture is not available in every DOM implementation.
+      }
     };
-    this.onPointerUp = (): void => {
+    this.onPointerUp = (event): void => {
+      const pointerId = eventPointerId(event);
+      if (this.activePointerId !== pointerId) return;
       this.pressed = false;
+      this.activePointerId = null;
+      try {
+        this.target.releasePointerCapture(pointerId);
+      } catch {
+        // Capture may already have been released by the browser.
+      }
     };
-    this.onPointerMove = (e: PointerEvent): void => {
-      const rect = this.target.getBoundingClientRect();
-      const w = rect.width || 1;
-      const h = rect.height || 1;
-      this.x = ((e.clientX - rect.left) / w) * 2 - 1;
-      this.y = ((e.clientY - rect.top) / h) * 2 - 1;
+    this.onPointerMove = (event): void => {
+      if (this.activePointerId !== null && this.activePointerId !== eventPointerId(event)) return;
+      this.updatePosition(event);
     };
+    this.onPointerLoss = (event): void => {
+      const pointerId = eventPointerId(event);
+      if (this.activePointerId !== null && this.activePointerId !== pointerId) return;
+      this.reset();
+    };
+    this.onBlur = (): void => this.reset();
 
     this.target.addEventListener('pointerdown', this.onPointerDown);
     this.target.addEventListener('pointermove', this.onPointerMove);
     this.target.addEventListener('pointerup', this.onPointerUp);
+    this.target.addEventListener('pointercancel', this.onPointerLoss);
+    this.target.addEventListener('pointerleave', this.onPointerLoss);
+    this.target.addEventListener('lostpointercapture', this.onPointerLoss);
+    window.addEventListener('blur', this.onBlur);
   }
 
   read(): InputFrame<B, X> {
@@ -83,5 +110,33 @@ export class PointerSource<B extends string = never, X extends string = never>
     this.target.removeEventListener('pointerdown', this.onPointerDown);
     this.target.removeEventListener('pointermove', this.onPointerMove);
     this.target.removeEventListener('pointerup', this.onPointerUp);
+    this.target.removeEventListener('pointercancel', this.onPointerLoss);
+    this.target.removeEventListener('pointerleave', this.onPointerLoss);
+    this.target.removeEventListener('lostpointercapture', this.onPointerLoss);
+    window.removeEventListener('blur', this.onBlur);
+    this.reset();
   }
+
+  private updatePosition(event: PointerEvent): void {
+    const rect = this.target.getBoundingClientRect();
+    const width = rect.width || 1;
+    const height = rect.height || 1;
+    this.x = clamp(((event.clientX - rect.left) / width) * 2 - 1);
+    this.y = clamp(((event.clientY - rect.top) / height) * 2 - 1);
+  }
+
+  private reset(): void {
+    this.activePointerId = null;
+    this.pressed = false;
+    this.x = 0;
+    this.y = 0;
+  }
+}
+
+function eventPointerId(event: PointerEvent): number {
+  return Number.isInteger(event.pointerId) ? event.pointerId : 1;
+}
+
+function clamp(value: number): number {
+  return Math.max(-1, Math.min(1, value));
 }

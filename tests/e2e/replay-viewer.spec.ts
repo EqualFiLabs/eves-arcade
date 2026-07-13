@@ -9,13 +9,11 @@ import { test, expect } from '@playwright/test';
  * controls rather than ranked verification.
  */
 
-/** Valid trace: version=1, 120 neutral frames, 13 buttons (2 bytes), 0 axes. */
+/** Valid V2 trace: 120 neutral frames, RPR schema width = 2 button bytes. */
 function minimalTraceBase64(): string {
-  const bytes = Buffer.alloc(7 + 120 * 2);
-  bytes[0] = 1;
+  const bytes = Buffer.alloc(5 + 120 * 2);
+  bytes[0] = 2;
   bytes.writeUInt32BE(120, 1);
-  bytes[5] = 13;
-  bytes[6] = 0;
   return bytes.toString('base64');
 }
 
@@ -25,8 +23,8 @@ function replayEnvelope(): string {
     seed: 42,
     evidence: {
       kind: 'input-trace',
-      schema: { id: 'rpr.input', version: 1 },
-      encodingVersion: 1,
+      schema: { id: 'rpr.input', version: 2 },
+      encodingVersion: 2,
       data: minimalTraceBase64(),
     },
   });

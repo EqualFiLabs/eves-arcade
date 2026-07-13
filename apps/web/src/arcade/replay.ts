@@ -68,7 +68,7 @@ class ReplayViewerImpl implements ReplayViewer {
         <p>Paste a replay envelope containing exact game, schema, seed, and trace metadata.</p>
         <label for="replay-envelope">Replay envelope (JSON)</label>
         <textarea id="replay-envelope" class="replay-envelope" rows="12" spellcheck="false"
-          placeholder='{"game":{"id":"rug-pull-rumble","version":"0.1.0"},"seed":42,"evidence":{"kind":"input-trace","schema":{"id":"rpr.input","version":1},"encodingVersion":1,"data":"..."}}'></textarea>
+          placeholder='{"game":{"id":"rug-pull-rumble","version":"0.1.0"},"seed":42,"evidence":{"kind":"input-trace","schema":{"id":"rpr.input","version":2},"encodingVersion":2,"data":"..."}}'></textarea>
         <div class="replay-form-actions">
           <button class="replay-load" type="button">Load Replay</button>
           <button class="replay-back-link" type="button">← Back to Arcade</button>

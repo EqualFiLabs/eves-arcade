@@ -58,7 +58,7 @@ shims should be temporary and should have an explicit removal phase.
 | 3 | Redesign the platform contracts and capabilities | COMPLETE | Phase 2 |
 | 4 | Harden the shell lifecycle | COMPLETE | Phase 3 |
 | 5 | Make shared web surfaces game-neutral | COMPLETE | Phase 3 |
-| 6 | Introduce explicit canonical input and trace schemas | NOT STARTED | Phases 2–3 |
+| 6 | Introduce explicit canonical input and trace schemas | COMPLETE | Phases 2–3 |
 | 7 | Generalize and harden the verification backend | NOT STARTED | Phases 2, 3, 6 |
 | 8 | Enforce architecture and prove multi-format support | NOT STARTED | Phases 4–7 |
 | 9 | Adapt Crypto Crash Launcher to the platform | NOT STARTED | Phase 8 |
@@ -802,15 +802,24 @@ Device sources
 
 ## Work Log
 
-Status: `NOT STARTED`
+Status: `COMPLETE`
 
-Planning document:
+Planning document: `phases/phase-6-canonical-input-and-trace-v2.md`
 
-Implementation notes:
+Implementation notes: See the phase document implementation log. Trace V1 was
+removed; Trace V2 is schema-keyed, fixed-width, strictly bounded, and
+canonicalizes analog values before both simulation and recording. RPR now uses
+`rpr.input@2` with an 11-action vocabulary and a 10,800-frame ceiling. Pointer
+and touch loss paths reset all retained state.
 
-Verification evidence:
+Verification evidence: Typecheck, lint, 247 unit/integration tests, production
+build, and all 20 browser tests pass. See the phase document for the adversarial
+codec and input-source matrix.
 
-Deferred items:
+Deferred items: Verifier registries, durable storage, worker/queue topology,
+retained verifier versions, and production execution limits remain Phase 7.
+Compression is deferred until real traces justify it; V1 migration is closed
+because the platform is greenfield.
 
 ---
 
@@ -1161,6 +1170,7 @@ decision; add a superseding entry with rationale.
 | ADR-006 | 2026-07-12 | Accepted | Use one exact Phaser version across the monorepo, targeting `4.2.1`. | Exact pinning prevents silent framework drift across game implementations; Phase 0 records policy without changing dependencies. | — |
 | ADR-007 | 2026-07-12 | Accepted | Keep detailed planning and execution evidence in one document per phase while the roadmap remains the status index. | Phase records can be detailed without making the cross-phase roadmap difficult to navigate. | — |
 | ADR-008 | 2026-07-12 | Accepted | Preserve Phase 0 defect evidence as documented non-gating probes and add permanent regression tests with Phase 1 fixes. | Main remains green while every defect has reproducible evidence and an assigned test. | — |
+| ADR-009 | 2026-07-13 | Accepted | Replace Trace V1 with schema-keyed fixed-width Trace V2 and canonicalize input before simulation and recording. | A greenfield break removes ambiguous key order and alternate analog representations without carrying legacy decoder risk. | — |
 
 # Deferred Backlog
 
@@ -1183,3 +1193,4 @@ target phase or reconsideration condition.
 | 2026-07-12 | Created the architecture hardening roadmap from the greenfield platform review and agreed direction. | Initial review |
 | 2026-07-12 | Captured the Phase 0 baseline, contract inventory, seven ranked-defect probes, dependency policy, and proposed Phase 1 ranked vertical-slice plan. | Phase 0 |
 | 2026-07-12 | Approved the Phase 1 ranked vertical-slice plan, completed Phase 0, and marked Phase 1 ready for implementation. | Phase 0 closure |
+| 2026-07-13 | Completed Phase 6 with canonical schema-keyed Trace V2, bounded RPR evidence, and hardened pointer/touch state recovery. | Phase 6 |

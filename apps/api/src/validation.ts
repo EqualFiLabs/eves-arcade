@@ -61,8 +61,13 @@ export function parseScoreSubmission(value: unknown): ScoreSubmission {
   };
 }
 
-export function decodeBase64Strict(value: string): Uint8Array {
+export function decodeBase64Strict(value: string, maxBytes = Number.MAX_SAFE_INTEGER): Uint8Array {
   if (!STRICT_BASE64.test(value)) throw new RequestValidationError('Invalid base64');
+  const padding = value.endsWith('==') ? 2 : value.endsWith('=') ? 1 : 0;
+  const decodedLength = (value.length / 4) * 3 - padding;
+  if (!Number.isSafeInteger(decodedLength) || decodedLength > maxBytes) {
+    throw new RequestValidationError(`Decoded evidence exceeds ${maxBytes} bytes`);
+  }
   const binary = atob(value);
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }

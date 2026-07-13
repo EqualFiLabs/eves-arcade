@@ -39,7 +39,7 @@ export const PLATFORM_CONTRACT_EXAMPLES = [
     contract: {
       game: { id: 'example-launcher', version: '2.1.0' },
       resultSchema: { id: 'launcher.result', version: 3 },
-      verification: { kind: 'input-trace', schema: { id: 'launcher.commands', version: 4 }, encodingVersion: 1 },
+      verification: { kind: 'input-trace', schema: { id: 'launcher.commands', version: 4 }, encodingVersion: 2 },
     },
     title: 'Example Launcher',
     orientation: 'portrait',

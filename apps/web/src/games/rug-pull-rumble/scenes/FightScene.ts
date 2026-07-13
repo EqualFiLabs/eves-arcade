@@ -21,8 +21,10 @@ import { GamepadSource, KeyboardSource, MergingSource, TraceRecorder, TouchOverl
 import type { InputSource } from '@rpr/controls';
 import type { ArcadeGameContext } from '../../../arcade/types';
 import {
+  RPR_INPUT_DEFINITION,
   RPR_INPUT_SCHEMA,
   RPR_TRACE_ENCODING_VERSION,
+  RPR_TRACE_LIMITS,
   RprMatch,
   deriveRprCanonicalResult,
 } from '@rpr/rug-pull-rumble-core';
@@ -109,7 +111,7 @@ export class FightScene extends Phaser.Scene {
     }
 
     const merged = new MergingSource<RprButton>(sources);
-    this.recorder = new TraceRecorder<RprButton>();
+    this.recorder = new TraceRecorder<RprButton>(RPR_INPUT_DEFINITION, RPR_TRACE_LIMITS);
     const recorded = this.recorder.wrap(merged);
     this.sources = sources;
     this.inputMapper = new InputMapper([recorded]);

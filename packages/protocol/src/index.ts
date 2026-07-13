@@ -7,7 +7,7 @@
  * Public surface:
  * - Types: `SessionTicket`, `GameResult`, `ScoreSubmission`, `LeaderboardCategory`
  * - API responses: `SessionResponse`, `SubmissionResponse`, `LeaderboardResponse`, etc.
- * - Trace: `TRACE_ENCODING_VERSION`, `unpackTrace`, `DecodedTrace`
+ * - Trace: input schemas, canonicalization, bounded Trace V2 encode/decode
  */
 
 export * from './types';

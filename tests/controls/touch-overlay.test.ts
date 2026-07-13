@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TouchOverlaySource, type TouchLayout } from '@rpr/controls';
 
 type Btn = 'fire' | 'jump';
-type Ax = 'moveX' | 'moveY';
+type Ax = 'moveX' | 'moveY' | 'aimX' | 'aimY';
 
 const layout: TouchLayout<Btn, Ax> = {
   zones: [
@@ -120,6 +120,22 @@ describe('TouchOverlaySource (Req 6.1–6.3, 6.5)', () => {
     src.destroy();
   });
 
+  it('keeps a button pressed until every pointer on it is released', () => {
+    mockRect(800, 400);
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const src = new TouchOverlaySource<Btn, Ax>(parent, layout);
+    const overlay = parent.querySelector('.touch-overlay')!;
+
+    ptr(overlay, 'pointerdown', FIRE_X, FIRE_Y, 1);
+    ptr(overlay, 'pointerdown', FIRE_X, FIRE_Y, 2);
+    ptr(overlay, 'pointerup', FIRE_X, FIRE_Y, 1);
+    expect(src.read().buttons.fire).toBe(true);
+    ptr(overlay, 'pointerup', FIRE_X, FIRE_Y, 2);
+    expect(src.read().buttons.fire).toBe(false);
+    src.destroy();
+  });
+
   it('activates the floating stick and reports axes from pointer movement', () => {
     mockRect(800, 400);
     const parent = document.createElement('div');
@@ -198,6 +214,75 @@ describe('TouchOverlaySource (Req 6.1–6.3, 6.5)', () => {
     ptr(overlay, 'pointercancel', STICK_X + 40, STICK_Y, 1);
     expect(src.read().axes.moveX).toBe(0);
 
+    src.destroy();
+  });
+
+  it.each(['pointerleave', 'lostpointercapture'])(
+    '%s releases captured button state',
+    (eventName) => {
+      mockRect(800, 400);
+      const parent = document.createElement('div');
+      document.body.appendChild(parent);
+      const src = new TouchOverlaySource<Btn, Ax>(parent, layout);
+      const overlay = parent.querySelector('.touch-overlay')!;
+      ptr(overlay, 'pointerdown', FIRE_X, FIRE_Y, 7);
+      ptr(overlay, eventName, FIRE_X, FIRE_Y, 7);
+      expect(src.read().buttons.fire).toBe(false);
+      src.destroy();
+    },
+  );
+
+  it('window blur clears every active touch state', () => {
+    mockRect(800, 400);
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const src = new TouchOverlaySource<Btn, Ax>(parent, layout);
+    const overlay = parent.querySelector('.touch-overlay')!;
+    ptr(overlay, 'pointerdown', FIRE_X, FIRE_Y, 1);
+    ptr(overlay, 'pointerdown', STICK_X, STICK_Y, 2);
+    ptr(overlay, 'pointermove', STICK_X + 50, STICK_Y, 2);
+    window.dispatchEvent(new Event('blur'));
+    expect(src.read()).toEqual({
+      buttons: { fire: false, jump: false },
+      axes: { moveX: 0, moveY: 0 },
+    });
+    src.destroy();
+  });
+
+  it('maps a drag region to absolute normalized axes and resets on release', () => {
+    mockRect(800, 400);
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const dragLayout: TouchLayout<Btn, Ax> = {
+      zones: [{ kind: 'drag', axes: ['aimX', 'aimY'], region: 'right' }],
+    };
+    const src = new TouchOverlaySource<Btn, Ax>(parent, dragLayout);
+    const overlay = parent.querySelector('.touch-overlay')!;
+
+    ptr(overlay, 'pointerdown', 600, 200, 1);
+    expect(src.read().axes).toEqual({ aimX: 0, aimY: 0 });
+    ptr(overlay, 'pointermove', 900, -100, 1);
+    expect(src.read().axes).toEqual({ aimX: 1, aimY: -1 });
+    ptr(overlay, 'pointerup', 900, -100, 1);
+    expect(src.read().axes).toEqual({ aimX: 0, aimY: 0 });
+    src.destroy();
+  });
+
+  it('gives each analog zone one pointer owner', () => {
+    mockRect(800, 400);
+    const parent = document.createElement('div');
+    document.body.appendChild(parent);
+    const dragLayout: TouchLayout<Btn, Ax> = {
+      zones: [{ kind: 'drag', axes: ['aimX', 'aimY'], region: 'full' }],
+    };
+    const src = new TouchOverlaySource<Btn, Ax>(parent, dragLayout);
+    const overlay = parent.querySelector('.touch-overlay')!;
+    ptr(overlay, 'pointerdown', 400, 200, 1);
+    ptr(overlay, 'pointerdown', 800, 400, 2);
+    ptr(overlay, 'pointermove', 800, 400, 2);
+    expect(src.read().axes).toEqual({ aimX: 0, aimY: 0 });
+    ptr(overlay, 'pointermove', 800, 400, 1);
+    expect(src.read().axes).toEqual({ aimX: 1, aimY: 1 });
     src.destroy();
   });
 

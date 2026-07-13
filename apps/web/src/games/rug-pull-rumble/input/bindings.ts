@@ -11,6 +11,8 @@ import type { RprButton } from './buttons';
  *
  * High/low light and heavy attacks split across A/Z (light) and S/X (heavy);
  * special/super on C/V. Movement on arrows, block on Left Shift (design.md).
+ * Menu start and mute are scene controls and are intentionally outside the
+ * deterministic fight input schema.
  */
 export const RPR_KEYBOARD_BINDINGS: Readonly<Record<RprButton, string>> = {
   left: 'ArrowLeft',
@@ -24,8 +26,6 @@ export const RPR_KEYBOARD_BINDINGS: Readonly<Record<RprButton, string>> = {
   heavyLow: 'KeyX',
   special: 'KeyC',
   super: 'KeyV',
-  start: 'Enter',
-  mute: 'KeyM',
 };
 
 /**
@@ -35,7 +35,7 @@ export const RPR_KEYBOARD_BINDINGS: Readonly<Record<RprButton, string>> = {
  * Directions bind to BOTH the D-pad and the left stick (OR-merged within the
  * source), so either works for movement. Face buttons → the four high/low
  * normals; L1 → block; R1 → special; R2 (pressure) → super; Start/Back →
- * start/mute. Deadzone 0.4 matches the sim's `GAMEPAD_DEADZONE`.
+ * Deadzone 0.4 matches the sim's `GAMEPAD_DEADZONE`.
  */
 export const RPR_GAMEPAD_BINDINGS: GamepadBindings<RprButton> = {
   buttons: {
@@ -50,8 +50,6 @@ export const RPR_GAMEPAD_BINDINGS: GamepadBindings<RprButton> = {
     heavyLow: 'y',
     special: 'r1',
     super: 'r2',
-    start: 'start',
-    mute: 'back',
   },
   deadzone: 0.4,
 };

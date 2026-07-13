@@ -55,7 +55,7 @@ export interface TouchDragZone<X extends string> {
 type PointerState<B extends string, X extends string> =
   | { type: 'button'; action: B }
   | { type: 'stick' }
-  | { type: 'drag'; zone: TouchDragZone<X>; originX: number; originY: number };
+  | { type: 'drag'; zone: TouchDragZone<X> };
 
 const OVERLAY_CSS = `
 .touch-overlay {
@@ -130,11 +130,14 @@ export class TouchOverlaySource<B extends string, X extends string = never>
   private readonly resizeObserver: ResizeObserver | null;
 
   private readonly pointers = new Map<number, PointerState<B, X>>();
-  private readonly buttonPressed = new Set<string>();
+  private readonly buttonPressCounts = new Map<string, number>();
   private readonly stickZone: TouchStickZone<X> | undefined;
   private readonly dragZones: readonly TouchDragZone<X>[];
   private readonly buttonZones: readonly TouchButtonZone<B>[];
+  private readonly dragPointerIds = new Map<TouchDragZone<X>, number>();
+  private readonly dragAxes = new Map<X, number>();
 
+  private stickPointerId: number | null = null;
   private stickX = 0;
   private stickY = 0;
   private stickOriginX = 0;
@@ -143,6 +146,7 @@ export class TouchOverlaySource<B extends string, X extends string = never>
   private readonly onPointerDown: (e: PointerEvent) => void;
   private readonly onPointerMove: (e: PointerEvent) => void;
   private readonly onPointerUp: (e: PointerEvent) => void;
+  private readonly onBlur: () => void;
 
   constructor(parent: HTMLElement, layout: TouchLayout<B, X>) {
     this.buttonZones = layout.zones.filter((z): z is TouchButtonZone<B> => z.kind === 'button');
@@ -179,11 +183,15 @@ export class TouchOverlaySource<B extends string, X extends string = never>
     this.onPointerDown = (e: PointerEvent): void => this.handleDown(e);
     this.onPointerMove = (e: PointerEvent): void => this.handleMove(e);
     this.onPointerUp = (e: PointerEvent): void => this.handleUp(e);
+    this.onBlur = (): void => this.resetAllPointers();
 
     this.layer.addEventListener('pointerdown', this.onPointerDown);
     this.layer.addEventListener('pointermove', this.onPointerMove);
     this.layer.addEventListener('pointerup', this.onPointerUp);
     this.layer.addEventListener('pointercancel', this.onPointerUp);
+    this.layer.addEventListener('pointerleave', this.onPointerUp);
+    this.layer.addEventListener('lostpointercapture', this.onPointerUp);
+    window.addEventListener('blur', this.onBlur);
 
     if (typeof ResizeObserver !== 'undefined') {
       this.resizeObserver = new ResizeObserver(() => this.layoutZones());
@@ -198,7 +206,7 @@ export class TouchOverlaySource<B extends string, X extends string = never>
   read(): InputFrame<B, X> {
     const buttons = {} as Record<B, boolean>;
     for (const zone of this.buttonZones) {
-      buttons[zone.action] = this.buttonPressed.has(zone.action as string);
+      buttons[zone.action] = (this.buttonPressCounts.get(zone.action as string) ?? 0) > 0;
     }
 
     const axes = {} as Record<X, number>;
@@ -206,8 +214,10 @@ export class TouchOverlaySource<B extends string, X extends string = never>
       axes[this.stickZone.axes[0]] = this.stickX;
       axes[this.stickZone.axes[1]] = this.stickY;
     }
-    // Drag axes are set by handleMove via stickX/stickY-like fields on the pointer state;
-    // for V1 RPR only uses stick, drag is for Squadron.
+    for (const zone of this.dragZones) {
+      axes[zone.axes[0]] = this.dragAxes.get(zone.axes[0]) ?? 0;
+      axes[zone.axes[1]] = this.dragAxes.get(zone.axes[1]) ?? 0;
+    }
 
     return { buttons, axes };
   }
@@ -218,7 +228,11 @@ export class TouchOverlaySource<B extends string, X extends string = never>
     this.layer.removeEventListener('pointermove', this.onPointerMove);
     this.layer.removeEventListener('pointerup', this.onPointerUp);
     this.layer.removeEventListener('pointercancel', this.onPointerUp);
+    this.layer.removeEventListener('pointerleave', this.onPointerUp);
+    this.layer.removeEventListener('lostpointercapture', this.onPointerUp);
+    window.removeEventListener('blur', this.onBlur);
     this.resizeObserver?.disconnect();
+    this.resetAllPointers();
     this.layer.remove();
   }
 
@@ -233,7 +247,7 @@ export class TouchOverlaySource<B extends string, X extends string = never>
     for (const zone of this.buttonZones) {
       const center = this.zoneCenter(zone, rect);
       if (Math.hypot(px - center.x, py - center.y) <= center.r) {
-        this.buttonPressed.add(zone.action as string);
+        this.incrementButton(zone.action as string);
         this.buttonEls.get(zone.action as string)?.classList.add('active');
         this.pointers.set(e.pointerId, { type: 'button', action: zone.action });
         this.setCapture(e);
@@ -242,8 +256,10 @@ export class TouchOverlaySource<B extends string, X extends string = never>
     }
 
     // Stick region
-    if (this.stickZone && this.inAnchor(this.stickZone.anchor, px, rect)) {
+    if (this.stickZone && this.stickPointerId === null
+      && this.inAnchor(this.stickZone.anchor, px, rect)) {
       this.pointers.set(e.pointerId, { type: 'stick' });
+      this.stickPointerId = e.pointerId;
       this.stickOriginX = px;
       this.stickOriginY = py;
       this.stickX = 0;
@@ -255,13 +271,10 @@ export class TouchOverlaySource<B extends string, X extends string = never>
 
     // Drag zones
     for (const zone of this.dragZones) {
-      if (this.inRegion(zone.region, px, py, rect)) {
-        this.pointers.set(e.pointerId, {
-          type: 'drag',
-          zone,
-          originX: px,
-          originY: py,
-        });
+      if (!this.dragPointerIds.has(zone) && this.inRegion(zone.region, px, rect)) {
+        this.pointers.set(e.pointerId, { type: 'drag', zone });
+        this.dragPointerIds.set(zone, e.pointerId);
+        this.updateDragAxes(zone, px, py, rect);
         this.setCapture(e);
         return;
       }
@@ -284,6 +297,8 @@ export class TouchOverlaySource<B extends string, X extends string = never>
       this.stickX = (dx * scale) / r;
       this.stickY = (dy * scale) / r;
       this.updateStickVisual(this.stickOriginX + dx * scale, this.stickOriginY + dy * scale);
+    } else if (ptr.type === 'drag') {
+      this.updateDragAxes(ptr.zone, px, py, rect);
     }
   }
 
@@ -292,14 +307,15 @@ export class TouchOverlaySource<B extends string, X extends string = never>
     if (!ptr) return;
 
     if (ptr.type === 'button') {
-      this.buttonPressed.delete(ptr.action as string);
-      this.buttonEls.get(ptr.action as string)?.classList.remove('active');
+      this.decrementButton(ptr.action as string);
     }
     if (ptr.type === 'stick') {
-      this.stickX = 0;
-      this.stickY = 0;
-      this.stickBaseEl.style.display = 'none';
-      this.stickThumbEl.style.display = 'none';
+      this.resetStick(e.pointerId);
+    }
+    if (ptr.type === 'drag') {
+      this.dragPointerIds.delete(ptr.zone);
+      this.dragAxes.set(ptr.zone.axes[0], 0);
+      this.dragAxes.set(ptr.zone.axes[1], 0);
     }
 
     this.pointers.delete(e.pointerId);
@@ -352,7 +368,7 @@ export class TouchOverlaySource<B extends string, X extends string = never>
     return anchor === 'left' ? px < rect.width / 2 : px >= rect.width / 2;
   }
 
-  private inRegion(region: 'full' | 'left' | 'right', px: number, py: number, rect: DOMRect): boolean {
+  private inRegion(region: 'full' | 'left' | 'right', px: number, rect: DOMRect): boolean {
     if (region === 'full') return true;
     return this.inAnchor(region, px, rect);
   }
@@ -375,6 +391,53 @@ export class TouchOverlaySource<B extends string, X extends string = never>
     this.stickThumbEl.style.top = `${y}px`;
   }
 
+  private updateDragAxes(zone: TouchDragZone<X>, px: number, py: number, rect: DOMRect): void {
+    const halfWidth = rect.width / 2;
+    const left = zone.region === 'right' ? halfWidth : 0;
+    const width = zone.region === 'full' ? rect.width : halfWidth;
+    const x = ((px - left) / (width || 1)) * 2 - 1;
+    const y = (py / (rect.height || 1)) * 2 - 1;
+    this.dragAxes.set(zone.axes[0], clampAxis(x));
+    this.dragAxes.set(zone.axes[1], clampAxis(y));
+  }
+
+  private incrementButton(action: string): void {
+    this.buttonPressCounts.set(action, (this.buttonPressCounts.get(action) ?? 0) + 1);
+    this.buttonEls.get(action)?.classList.add('active');
+  }
+
+  private decrementButton(action: string): void {
+    const count = Math.max(0, (this.buttonPressCounts.get(action) ?? 0) - 1);
+    if (count === 0) {
+      this.buttonPressCounts.delete(action);
+      this.buttonEls.get(action)?.classList.remove('active');
+    } else {
+      this.buttonPressCounts.set(action, count);
+    }
+  }
+
+  private resetStick(pointerId: number): void {
+    if (this.stickPointerId !== pointerId) return;
+    this.stickPointerId = null;
+    this.stickX = 0;
+    this.stickY = 0;
+    this.stickBaseEl.style.display = 'none';
+    this.stickThumbEl.style.display = 'none';
+  }
+
+  private resetAllPointers(): void {
+    this.pointers.clear();
+    this.buttonPressCounts.clear();
+    for (const element of this.buttonEls.values()) element.classList.remove('active');
+    this.stickPointerId = null;
+    this.stickX = 0;
+    this.stickY = 0;
+    this.stickBaseEl.style.display = 'none';
+    this.stickThumbEl.style.display = 'none';
+    this.dragPointerIds.clear();
+    this.dragAxes.clear();
+  }
+
   private setCapture(e: PointerEvent): void {
     try {
       this.layer.setPointerCapture(e.pointerId);
@@ -382,4 +445,8 @@ export class TouchOverlaySource<B extends string, X extends string = never>
       // Some environments don't support pointer capture
     }
   }
+}
+
+function clampAxis(value: number): number {
+  return Math.max(-1, Math.min(1, value));
 }

@@ -5,7 +5,11 @@ import { Store } from '../../apps/api/src/store';
 import { signTicket, verifyTicketSig } from '../../apps/api/src/crypto';
 import { verifyRpr } from '../../apps/api/src/verify/rpr';
 import { terminalRprFixture } from '../fixtures/rpr-terminal';
-import { decodeRprTrace } from '@rpr/rug-pull-rumble-core';
+import {
+  RPR_INPUT_SCHEMA,
+  RPR_TRACE_LIMITS,
+  decodeRprTrace,
+} from '@rpr/rug-pull-rumble-core';
 import {
   TRACE_ENCODING_VERSION,
   sha256HexBytes,
@@ -18,7 +22,7 @@ import {
 const TEST_SECRET = 'test-secret';
 const TEST_BUILD = 'test';
 const GAME = { id: 'rug-pull-rumble', version: '0.1.0' } as const;
-const INPUT_SCHEMA = { id: 'rpr.input', version: 1 } as const;
+const INPUT_SCHEMA = RPR_INPUT_SCHEMA;
 const baseConfig = loadConfig();
 let store: Store;
 
@@ -43,6 +47,10 @@ function bytesToBase64(bytes: Uint8Array): string {
   let binary = '';
   for (const byte of bytes) binary += String.fromCharCode(byte);
   return btoa(binary);
+}
+
+function decodeBase64(value: string): Uint8Array {
+  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0));
 }
 
 async function validSubmission(ticket = makeTicket()): Promise<ScoreSubmission> {
@@ -194,6 +202,49 @@ describe('POST /results', () => {
     submission.evidence.data = '!!!!';
     const response = await postResult(api, submission);
     expect(response.status).toBe(422);
+    expect(store.consumeTicket(ticket.sessionId)).not.toBeNull();
+  });
+
+  it('rejects legacy V1 evidence without consuming the ticket', async () => {
+    const api = app();
+    const ticket = makeTicket();
+    store.saveTicket(ticket);
+    const submission = await validSubmission(ticket);
+    if (submission.evidence.kind !== 'input-trace') throw new Error('fixture must use a trace');
+    const legacy = new Uint8Array(7);
+    legacy[0] = 1;
+    new DataView(legacy.buffer).setUint32(1, 1, false);
+    submission.evidence.data = bytesToBase64(legacy);
+    submission.evidence.hash = await sha256HexBytes(legacy);
+    const response = await postResult(api, submission);
+    expect((await response.json()).reason).toMatch(/unsupported trace encoding version/i);
+    expect(store.consumeTicket(ticket.sessionId)).not.toBeNull();
+  });
+
+  it('preflights decoded evidence size before allocating trace bytes', async () => {
+    const api = app();
+    const ticket = makeTicket();
+    store.saveTicket(ticket);
+    const submission = await validSubmission(ticket);
+    if (submission.evidence.kind !== 'input-trace') throw new Error('fixture must use a trace');
+    submission.evidence.data = bytesToBase64(new Uint8Array(RPR_TRACE_LIMITS.maxBytes + 1));
+    const response = await postResult(api, submission);
+    expect((await response.json()).reason).toMatch(/exceeds .* bytes/i);
+    expect(store.consumeTicket(ticket.sessionId)).not.toBeNull();
+  });
+
+  it('rejects noncanonical unused button bits without consuming the ticket', async () => {
+    const api = app();
+    const ticket = makeTicket();
+    store.saveTicket(ticket);
+    const submission = await validSubmission(ticket);
+    if (submission.evidence.kind !== 'input-trace') throw new Error('fixture must use a trace');
+    const trace = decodeBase64(submission.evidence.data);
+    trace[6]! |= 0b00001000;
+    submission.evidence.data = bytesToBase64(trace);
+    submission.evidence.hash = await sha256HexBytes(trace);
+    const response = await postResult(api, submission);
+    expect((await response.json()).reason).toMatch(/unused button bits/i);
     expect(store.consumeTicket(ticket.sessionId)).not.toBeNull();
   });
 

@@ -22,21 +22,31 @@ import {
 } from '@rpr/content';
 import {
   sha256HexBytes,
-  unpackTrace,
+  decodeTrace,
   type CanonicalGameResult,
-  type DecodedTraceFrame,
+  type TraceFrame,
 } from '@rpr/protocol';
-import { RPR_RESULT_SCHEMA } from './identity';
+import {
+  RPR_INPUT_DEFINITION,
+  RPR_RESULT_SCHEMA,
+  RPR_TRACE_LIMITS,
+  type RprInputButton,
+} from './identity';
 export {
   RPR_CONTRACT,
   RPR_GAME_ID,
   RPR_GAME_VERSION,
+  RPR_INPUT_BUTTONS,
+  RPR_INPUT_DEFINITION,
   RPR_INPUT_SCHEMA,
+  RPR_MAX_TRACE_FRAMES,
   RPR_RESULT_SCHEMA,
   RPR_TRACE_ENCODING_VERSION,
+  RPR_TRACE_LIMITS,
 } from './identity';
+export type { RprInputButton } from './identity';
 
-export const RPR_TRACE_BUTTON_COUNT = 13;
+export const RPR_TRACE_BUTTON_COUNT = 11;
 export const RPR_TRACE_AXIS_COUNT = 0;
 
 export interface RprMetrics {
@@ -93,26 +103,23 @@ export class RprMatch {
   }
 }
 
-/** Decodes the compatibility-locked V1 positional trace into RPR inputs. */
+/** Decodes the schema-locked Trace V2 payload into canonical RPR inputs. */
 export function decodeRprTrace(bytes: Uint8Array, maxFrames: number): DecodedRprTrace {
-  const decoded = unpackTrace(bytes, {
+  const decoded = decodeTrace(bytes, RPR_INPUT_DEFINITION, {
+    minFrames: 1,
     maxFrames,
-    maxButtons: RPR_TRACE_BUTTON_COUNT,
-    maxAxes: RPR_TRACE_AXIS_COUNT,
+    maxBytes: Math.min(
+      RPR_TRACE_LIMITS.maxBytes,
+      5 + maxFrames * Math.ceil(RPR_INPUT_DEFINITION.buttons.length / 8),
+    ),
   });
-  if (decoded.buttonKeys.length !== RPR_TRACE_BUTTON_COUNT
-    || decoded.axisKeys.length !== RPR_TRACE_AXIS_COUNT) {
-    throw new Error(
-      `RPR trace schema mismatch: expected ${RPR_TRACE_BUTTON_COUNT} buttons and no axes`,
-    );
-  }
   return {
     version: decoded.version,
     inputs: decoded.frames.map(decodeRprTraceFrame),
   };
 }
 
-/** Serializes only a completed RPR state using the V1 compatibility format. */
+/** Serializes only a completed RPR state using the game-version compatibility format. */
 export function serializeRprTerminalState(state: GameState): string {
   assertTerminal(state);
   return serializeGameState(state);
@@ -164,17 +171,17 @@ function assertTerminal(state: GameState): void {
   }
 }
 
-function decodeRprTraceFrame(frame: DecodedTraceFrame): CombatInput {
-  const button = (index: number): boolean => frame.buttons[`b${index}`] ?? false;
+function decodeRprTraceFrame(frame: TraceFrame<RprInputButton, never>): CombatInput {
+  const button = (name: RprInputButton): boolean => frame.buttons[name] ?? false;
   return {
-    horizontal: ((button(1) ? 1 : 0) - (button(0) ? 1 : 0)) as CombatInput['horizontal'],
-    vertical: ((button(3) ? 1 : 0) - (button(2) ? 1 : 0)) as CombatInput['vertical'],
-    block: button(4),
-    lightHigh: button(5),
-    lightLow: button(6),
-    heavyHigh: button(7),
-    heavyLow: button(8),
-    special: button(9),
-    super: button(10),
+    horizontal: ((button('right') ? 1 : 0) - (button('left') ? 1 : 0)) as CombatInput['horizontal'],
+    vertical: ((button('down') ? 1 : 0) - (button('up') ? 1 : 0)) as CombatInput['vertical'],
+    block: button('block'),
+    lightHigh: button('lightHigh'),
+    lightLow: button('lightLow'),
+    heavyHigh: button('heavyHigh'),
+    heavyLow: button('heavyLow'),
+    special: button('special'),
+    super: button('super'),
   };
 }

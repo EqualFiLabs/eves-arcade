@@ -48,8 +48,6 @@ export function adaptTouchFrame(frame: InputFrame<TouchButton, TouchAxis>): Inpu
       heavyLow: heavy && down,
       special: frame.buttons.special ?? false,
       super: frame.buttons.super ?? false,
-      start: false,
-      mute: false,
     },
     axes: {},
   };

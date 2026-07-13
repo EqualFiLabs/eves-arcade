@@ -22,10 +22,16 @@ function makeTarget(width = 200, height = 200): HTMLElement {
   return el;
 }
 
-function dispatchPointer(el: HTMLElement, type: string, clientX: number, clientY: number): void {
+function dispatchPointer(
+  el: HTMLElement,
+  type: string,
+  clientX: number,
+  clientY: number,
+  pointerId = 1,
+): void {
   // jsdom doesn't implement PointerEvent, but MouseEvent carries clientX/clientY
   // and addEventListener matches by type string, so this reaches the handler.
-  el.dispatchEvent(new MouseEvent(type, { clientX, clientY }));
+  el.dispatchEvent(Object.assign(new MouseEvent(type, { clientX, clientY }), { pointerId }));
 }
 
 afterEach(() => {
@@ -69,6 +75,11 @@ describe('PointerSource (Req 5.1 — pointer as input)', () => {
     expect(f.axes.aimX).toBeCloseTo(1);
     expect(f.axes.aimY).toBeCloseTo(1);
 
+    // Coordinates outside the target remain canonical source values.
+    dispatchPointer(el, 'pointermove', 400, -100);
+    f = src.read();
+    expect(f.axes).toEqual({ aimX: 1, aimY: -1 });
+
     src.destroy();
   });
 
@@ -87,6 +98,51 @@ describe('PointerSource (Req 5.1 — pointer as input)', () => {
     dispatchPointer(el, 'pointerup', 50, 50);
     expect(src.read().buttons.fire).toBe(false);
 
+    src.destroy();
+  });
+
+  it.each(['pointercancel', 'pointerleave', 'lostpointercapture'])(
+    '%s neutralizes pressed state and axes',
+    (eventName) => {
+      const el = makeTarget();
+      const src = new PointerSource<TestButton, TestAxis>({
+        target: el,
+        axes: ['aimX', 'aimY'],
+        button: 'fire',
+      });
+      dispatchPointer(el, 'pointerdown', 180, 20, 4);
+      dispatchPointer(el, eventName, 180, 20, 4);
+      expect(src.read()).toEqual({ buttons: { fire: false }, axes: { aimX: 0, aimY: 0 } });
+      src.destroy();
+    },
+  );
+
+  it('window blur neutralizes pointer state', () => {
+    const el = makeTarget();
+    const src = new PointerSource<TestButton, TestAxis>({
+      target: el,
+      axes: ['aimX', 'aimY'],
+      button: 'fire',
+    });
+    dispatchPointer(el, 'pointerdown', 180, 20, 1);
+    window.dispatchEvent(new Event('blur'));
+    expect(src.read()).toEqual({ buttons: { fire: false }, axes: { aimX: 0, aimY: 0 } });
+    src.destroy();
+  });
+
+  it('ignores a competing pointer while one pointer owns the press', () => {
+    const el = makeTarget();
+    const src = new PointerSource<TestButton, TestAxis>({
+      target: el,
+      axes: ['aimX', 'aimY'],
+      button: 'fire',
+    });
+    dispatchPointer(el, 'pointerdown', 100, 100, 1);
+    dispatchPointer(el, 'pointerdown', 200, 200, 2);
+    dispatchPointer(el, 'pointermove', 200, 200, 2);
+    expect(src.read()).toEqual({ buttons: { fire: true }, axes: { aimX: 0, aimY: 0 } });
+    dispatchPointer(el, 'pointerup', 100, 100, 1);
+    expect(src.read().buttons.fire).toBe(false);
     src.destroy();
   });
 

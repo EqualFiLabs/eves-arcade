@@ -379,7 +379,7 @@ function manifestFor(
       game: GAME,
       resultSchema: { id: 'fixture.result', version: 1 },
       verification: ranked
-        ? { kind: 'input-trace', schema: { id: 'fixture.input', version: 1 }, encodingVersion: 1 }
+        ? { kind: 'input-trace', schema: { id: 'fixture.input', version: 1 }, encodingVersion: 2 }
         : { kind: 'none' },
     },
     title: 'Lifecycle Fixture',

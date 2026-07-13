@@ -1,15 +1,15 @@
 import { TraceRecorder, type InputFrame, type InputSource } from '@rpr/controls';
 import { NEUTRAL_INPUT, type CombatInput } from '@rpr/sim';
 import {
+  RPR_INPUT_DEFINITION,
+  RPR_TRACE_LIMITS,
   RprMatch,
   deriveRprCanonicalResult,
+  type RprInputButton,
   type RprCanonicalResult,
 } from '@rpr/rug-pull-rumble-core';
 
-type RprButton =
-  | 'left' | 'right' | 'up' | 'down' | 'block'
-  | 'lightHigh' | 'lightLow' | 'heavyHigh' | 'heavyLow'
-  | 'special' | 'super' | 'start' | 'mute';
+type RprButton = RprInputButton;
 
 export interface TerminalRprFixture {
   trace: Uint8Array;
@@ -30,7 +30,7 @@ export function terminalRprFixture(seed: number): Promise<TerminalRprFixture> {
 
 async function buildFixture(seed: number): Promise<TerminalRprFixture> {
   const match = new RprMatch(seed);
-  const recorder = new TraceRecorder<RprButton>();
+  const recorder = new TraceRecorder<RprButton>(RPR_INPUT_DEFINITION, RPR_TRACE_LIMITS);
   let frame = 0;
   const source: InputSource<RprButton> = {
     available: true,
@@ -73,8 +73,6 @@ function inputFrame(input: CombatInput): InputFrame<RprButton> {
       heavyLow: input.heavyLow,
       special: input.special,
       super: input.super,
-      start: false,
-      mute: false,
     },
     axes: {},
   };

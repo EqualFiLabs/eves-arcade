@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createV1FightState } from '@rpr/content';
+import { encodeTrace } from '@rpr/protocol';
 import {
+  RPR_INPUT_DEFINITION,
+  RPR_TRACE_LIMITS,
   RprMatch,
   RprReplayError,
   decodeRprTrace,
@@ -25,7 +28,7 @@ describe('canonical RPR core', () => {
     expect(replayResult).toEqual(fixture.canonical);
   });
 
-  it('pins the V1 terminal representation and complete result fixture', async () => {
+  it('pins the canonical terminal representation and complete result fixture', async () => {
     const fixture = await terminalRprFixture(FIXTURE_SEED);
     expect(fixture.canonical).toMatchInlineSnapshot(`
       {
@@ -46,8 +49,23 @@ describe('canonical RPR core', () => {
     `);
   });
 
-  it('maps the compatibility-locked 13-button positional trace', () => {
-    const trace = encodedTrace(1, 13, 0, [0b01011001, 0b00000101]);
+  it('maps the named RPR input schema into canonical combat input', () => {
+    const trace = encodeTrace(RPR_INPUT_DEFINITION, [{
+      buttons: {
+        left: true,
+        right: false,
+        up: false,
+        down: true,
+        block: true,
+        lightHigh: false,
+        lightLow: true,
+        heavyHigh: false,
+        heavyLow: true,
+        special: false,
+        super: true,
+      },
+      axes: {},
+    }], RPR_TRACE_LIMITS);
     const input = decodeRprTrace(trace, 1).inputs[0]!;
     expect(input).toEqual({
       horizontal: -1,
@@ -62,13 +80,11 @@ describe('canonical RPR core', () => {
     });
   });
 
-  it.each([
-    [12, 0],
-    [13, 1],
-  ])('rejects a non-RPR trace shape (%i buttons, %i axes)', (buttons, axes) => {
-    const frameSize = Math.ceil(buttons / 8) + axes * 2;
-    expect(() => decodeRprTrace(encodedTrace(1, buttons, axes, new Array(frameSize).fill(0)), 1))
-      .toThrow(/schema mismatch|axis count/i);
+  it('rejects legacy Trace V1 bytes', () => {
+    const legacy = new Uint8Array(7);
+    legacy[0] = 1;
+    new DataView(legacy.buffer).setUint32(1, 1, false);
+    expect(() => decodeRprTrace(legacy, 1)).toThrow(/unsupported trace encoding version/i);
   });
 
   it('rejects canonical result derivation from an active state', async () => {
@@ -133,19 +149,3 @@ describe('canonical RPR core', () => {
     expect(serializeRprTerminalState(state)).toBe(serializeRprTerminalState(state));
   });
 });
-
-function encodedTrace(
-  frames: number,
-  buttonCount: number,
-  axisCount: number,
-  payload: number[],
-): Uint8Array {
-  const bytes = new Uint8Array(7 + payload.length);
-  const view = new DataView(bytes.buffer);
-  bytes[0] = 1;
-  view.setUint32(1, frames, false);
-  bytes[5] = buttonCount;
-  bytes[6] = axisCount;
-  bytes.set(payload, 7);
-  return bytes;
-}

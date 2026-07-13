@@ -21,7 +21,7 @@ export class InputMapper {
     return mapRawInput(this.readMergedRaw());
   }
 
-  /** Merges all sources into a single RawInputState (includes start/mute). */
+  /** Merges all sources into one simulation-only RawInputState. */
   readMergedRaw(): RawInputState {
     return frameToRaw(this.readMergedFrame());
   }
