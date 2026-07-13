@@ -1,0 +1,24 @@
+FROM node:20-bookworm-slim AS build
+WORKDIR /workspace
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY packages/protocol/package.json packages/protocol/package.json
+COPY packages/sim/package.json packages/sim/package.json
+COPY packages/content/package.json packages/content/package.json
+COPY packages/rug-pull-rumble-core/package.json packages/rug-pull-rumble-core/package.json
+RUN pnpm install --frozen-lockfile
+COPY apps/api apps/api
+COPY packages packages
+RUN pnpm --filter @rpr/api build
+
+FROM node:20-bookworm-slim AS runtime
+ENV NODE_ENV=production
+WORKDIR /workspace
+COPY --from=build /workspace/node_modules ./node_modules
+COPY --from=build /workspace/apps/api/node_modules ./apps/api/node_modules
+COPY --from=build /workspace/apps/api/dist ./apps/api/dist
+COPY --from=build /workspace/apps/api/migrations ./apps/api/migrations
+COPY --from=build /workspace/apps/api/package.json ./apps/api/package.json
+USER node
+CMD ["node", "apps/api/dist/index.js"]

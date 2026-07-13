@@ -21,12 +21,35 @@ acquisition deliberately falls back to a fully playable unranked session.
 Server validation rejections do not fall back silently: the shell displays the
 configuration or request error.
 
+## Verification backend
+
+The API uses an in-memory store only when `DATABASE_URL` is absent in local
+development. Durable ranked deployment uses PostgreSQL 17, schema-keyed
+verifier revisions, leased/idempotent ticket processing, and a bounded worker
+thread pool. Run the real database integration suite with:
+
+```sh
+pnpm test:api:integration
+```
+
+Production artifacts live in `deploy/`. Copy `deploy/.env.example`, provide a
+strong ticket secret and database password, then run the production Compose
+stack from that directory. Caddy is the sole public service: it terminates TLS,
+serves the web build, overwrites forwarding headers, and proxies same-origin
+`/api/*` requests to the private API container.
+
+Production configuration deliberately has no insecure fallbacks. It requires
+`DATABASE_URL`, a ticket secret of at least 32 bytes, an explicit build
+allowlist, and trusted-proxy CIDRs. `/health` is liveness; `/ready` additionally
+checks PostgreSQL, worker capacity, and retained verifier/category references.
+
 ## Validation
 
 ```sh
 pnpm typecheck
 pnpm lint
 pnpm test:sim
+pnpm test:api:integration
 pnpm build
 pnpm test:e2e
 ```

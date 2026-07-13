@@ -59,7 +59,7 @@ shims should be temporary and should have an explicit removal phase.
 | 4 | Harden the shell lifecycle | COMPLETE | Phase 3 |
 | 5 | Make shared web surfaces game-neutral | COMPLETE | Phase 3 |
 | 6 | Introduce explicit canonical input and trace schemas | COMPLETE | Phases 2–3 |
-| 7 | Generalize and harden the verification backend | NOT STARTED | Phases 2, 3, 6 |
+| 7 | Generalize and harden the verification backend | COMPLETE | Phases 2, 3, 6 |
 | 8 | Enforce architecture and prove multi-format support | NOT STARTED | Phases 4–7 |
 | 9 | Adapt Crypto Crash Launcher to the platform | NOT STARTED | Phase 8 |
 | 10 | Build and ship Crypto Crash Launcher V1 | NOT STARTED | Phase 9 |
@@ -869,15 +869,24 @@ runtime-validated service that dispatches explicitly across games and versions.
 
 ## Work Log
 
-Status: `NOT STARTED`
+Status: `COMPLETE`
 
-Planning document:
+Planning document: `phases/phase-7-verification-backend.md`
 
-Implementation notes:
+Implementation notes: See the phase document implementation log. The API now
+dispatches through immutable verifier/category registries, persists leased and
+idempotent ticket transitions in PostgreSQL 17, retains accepted and rejected
+traces, and runs replay work in a bounded worker-thread pool. Production is
+packaged behind a single trusted same-origin Caddy proxy.
 
-Verification evidence:
+Verification evidence: API/web production builds, typecheck, lint, 264 fast
+unit/integration tests, five real PostgreSQL tests, all 20 browser tests,
+container builds, production migration/readiness/session smoke, Compose
+validation, and whitespace checks pass.
 
-Deferred items:
+Deferred items: External queues, authenticated review tooling, backup policy,
+multi-region coordination, and deletion windows require later operational
+decisions. Multi-format conformance remains Phase 8.
 
 ---
 
@@ -1171,6 +1180,7 @@ decision; add a superseding entry with rationale.
 | ADR-007 | 2026-07-12 | Accepted | Keep detailed planning and execution evidence in one document per phase while the roadmap remains the status index. | Phase records can be detailed without making the cross-phase roadmap difficult to navigate. | — |
 | ADR-008 | 2026-07-12 | Accepted | Preserve Phase 0 defect evidence as documented non-gating probes and add permanent regression tests with Phase 1 fixes. | Main remains green while every defect has reproducible evidence and an assigned test. | — |
 | ADR-009 | 2026-07-13 | Accepted | Replace Trace V1 with schema-keyed fixed-width Trace V2 and canonicalize input before simulation and recording. | A greenfield break removes ambiguous key order and alternate analog representations without carrying legacy decoder risk. | — |
+| ADR-010 | 2026-07-13 | Accepted | Use PostgreSQL 17, immutable verifier revisions, leased idempotent tickets, and bounded worker threads behind one trusted same-origin proxy. | Ranked evidence must survive restarts and concurrent instances without allowing replay work to block the API event loop. | — |
 
 # Deferred Backlog
 
@@ -1194,3 +1204,4 @@ target phase or reconsideration condition.
 | 2026-07-12 | Captured the Phase 0 baseline, contract inventory, seven ranked-defect probes, dependency policy, and proposed Phase 1 ranked vertical-slice plan. | Phase 0 |
 | 2026-07-12 | Approved the Phase 1 ranked vertical-slice plan, completed Phase 0, and marked Phase 1 ready for implementation. | Phase 0 closure |
 | 2026-07-13 | Completed Phase 6 with canonical schema-keyed Trace V2, bounded RPR evidence, and hardened pointer/touch state recovery. | Phase 6 |
+| 2026-07-13 | Completed Phase 7 with durable PostgreSQL ticket/result storage, generic verifier/category dispatch, bounded replay workers, and production proxy/container artifacts. | Phase 7 |

@@ -1,0 +1,79 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: arcade
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?required}
+      POSTGRES_DB: arcade
+    volumes:
+      - arcade-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U arcade -d arcade"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [private]
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    command: ["node", "apps/api/dist/migrate-cli.js"]
+    environment:
+      DATABASE_URL: postgresql://arcade:${POSTGRES_PASSWORD}@postgres:5432/arcade
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [private]
+
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://arcade:${POSTGRES_PASSWORD}@postgres:5432/arcade
+      TICKET_SECRET: ${TICKET_SECRET:?required}
+      BUILD_VERSION: ${BUILD_VERSION:?required}
+      KNOWN_BUILD_VERSIONS: ${KNOWN_BUILD_VERSIONS:?required}
+      TRUSTED_PROXY_CIDRS: 172.30.0.0/24
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/ready').then(r=>{if(!r.ok)process.exit(1)})"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks: [private]
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:?required}
+    restart: unless-stopped
+    environment:
+      ARCADE_DOMAIN: ${ARCADE_DOMAIN:?required}
+    depends_on:
+      api: { condition: service_healthy }
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [private]
+
+networks:
+  private:
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  arcade-postgres:
+  caddy-data:
+  caddy-config:

@@ -51,7 +51,7 @@ export function parseScoreSubmission(value: unknown): ScoreSubmission {
   };
 
   return {
-    ticket: parseTicket(submission.ticket),
+    ticket: parseSessionTicket(submission.ticket),
     evidence,
     claimedResult,
     clientTimestamp: nonNegativeInteger(submission.clientTimestamp, 'clientTimestamp'),
@@ -72,11 +72,12 @@ export function decodeBase64Strict(value: string, maxBytes = Number.MAX_SAFE_INT
   return Uint8Array.from(binary, (character) => character.charCodeAt(0));
 }
 
-function parseTicket(value: unknown): SessionTicket {
+export function parseSessionTicket(value: unknown): SessionTicket {
   const ticket = object(value, 'ticket');
   return {
     sessionId: string(ticket.sessionId, 'ticket.sessionId'),
     game: parseGameIdentity(ticket.game, 'ticket.game'),
+    verifier: parseVerifierIdentity(ticket.verifier, 'ticket.verifier'),
     buildVersion: string(ticket.buildVersion, 'ticket.buildVersion'),
     seed: nonNegativeInteger(ticket.seed, 'ticket.seed'),
     issuedAt: nonNegativeInteger(ticket.issuedAt, 'ticket.issuedAt'),
@@ -85,7 +86,15 @@ function parseTicket(value: unknown): SessionTicket {
   };
 }
 
-function parseCanonicalResult(value: unknown): CanonicalGameResult {
+function parseVerifierIdentity(value: unknown, name: string) {
+  const identity = object(value, name);
+  return {
+    id: string(identity.id, `${name}.id`),
+    revision: nonNegativeInteger(identity.revision, `${name}.revision`),
+  };
+}
+
+export function parseCanonicalResult(value: unknown): CanonicalGameResult {
   const result = object(value, 'result');
   const rawMetrics = object(result.metrics, 'result.metrics');
   const metrics: Record<string, number> = {};

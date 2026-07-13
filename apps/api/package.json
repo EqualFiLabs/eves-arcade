@@ -8,6 +8,9 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
+    "build": "tsup --config tsup.config.ts",
+    "start:prod": "node dist/index.js",
+    "migrate": "tsx src/migrate-cli.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src"
   },
@@ -16,10 +19,17 @@
     "@rpr/protocol": "workspace:*",
     "@rpr/rug-pull-rumble-core": "workspace:*",
     "@rpr/sim": "workspace:*",
-    "hono": "^4.6.0"
+    "hono": "^4.6.0",
+    "pg": "^8.22.0",
+    "piscina": "^5.2.0",
+    "proxy-addr": "^2.0.7",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.8.0",
+    "@types/pg": "^8.20.0",
+    "@types/proxy-addr": "^2.0.3",
+    "tsup": "^8.5.1",
     "tsx": "^4.19.0"
   }
 }

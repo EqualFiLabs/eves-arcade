@@ -415,6 +415,7 @@ function ticketedSession(): GameSession {
       ticket: {
         sessionId: 's1',
         game: GAME,
+        verifier: { id: 'fixture.verify', revision: 1 },
         buildVersion: 'test',
         seed: 42,
         issuedAt: 1,

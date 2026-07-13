@@ -13,7 +13,7 @@ afterEach(() => {
 describe('web session service', () => {
   it('requests an exact game/build ticket from the same-origin API', async () => {
     const ticket = {
-      sessionId: 's1', game: GAME, buildVersion: 'test', seed: 42,
+      sessionId: 's1', game: GAME, verifier: { id: 'rpr.verify', revision: 1 }, buildVersion: 'test', seed: 42,
       issuedAt: 1, expiresAt: 2, sig: '0'.repeat(64),
     };
     const fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ticket }), {

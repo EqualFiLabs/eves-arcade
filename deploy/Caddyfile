@@ -1,0 +1,16 @@
+{$ARCADE_DOMAIN} {
+  encode zstd gzip
+
+  handle_path /api/* {
+    reverse_proxy api:3000 {
+      header_up X-Forwarded-For {remote_host}
+      header_up X-Real-IP {remote_host}
+    }
+  }
+
+  handle {
+    root * /srv
+    try_files {path} /index.html
+    file_server
+  }
+}

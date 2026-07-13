@@ -1,47 +1,60 @@
-/**
- * Minimal Node.js HTTP adapter for Hono (avoids a @hono/node-server dependency).
- * Only used by `src/index.ts` for running the server; tests use `app.request()`
- * directly without a server.
- */
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { Hono } from 'hono';
 
-export function serve(app: Hono, port: number): void {
-  const server = createServer(
-    async (req: IncomingMessage, res: ServerResponse) => {
+export interface ServeOptions {
+  maxBodyBytes: number;
+}
+
+export function serve(app: Hono, port: number, options: ServeOptions): Server {
+  const server = createServer(async (req: IncomingMessage, res: ServerResponse) => {
+    try {
       const url = new URL(req.url ?? '/', `http://localhost:${port}`);
       const headers = new Headers();
       for (const [key, value] of Object.entries(req.headers)) {
-        if (Array.isArray(value)) value.forEach((v) => headers.append(key, v));
+        if (Array.isArray(value)) value.forEach((item) => headers.append(key, item));
         else if (value) headers.set(key, value);
       }
+      headers.set('x-rpr-peer-ip', req.socket.remoteAddress ?? 'unknown');
 
-      let body: ReadableStream<Uint8Array> | undefined;
+      const declared = Number(headers.get('content-length') ?? 0);
+      if (Number.isFinite(declared) && declared > options.maxBodyBytes) {
+        respondJson(res, 413, { error: 'Request body too large' });
+        return;
+      }
+      let body: Uint8Array | undefined;
       if (req.method !== 'GET' && req.method !== 'HEAD') {
-        body = new ReadableStream({
-          start(controller) {
-            req.on('data', (chunk) => controller.enqueue(new Uint8Array(chunk)));
-            req.on('end', () => controller.close());
-            req.on('error', (err) => controller.error(err));
-          },
-        });
+        const chunks: Buffer[] = [];
+        let size = 0;
+        for await (const chunk of req) {
+          const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as Uint8Array);
+          size += buffer.byteLength;
+          if (size > options.maxBodyBytes) {
+            respondJson(res, 413, { error: 'Request body too large' });
+            req.destroy();
+            return;
+          }
+          chunks.push(buffer);
+        }
+        body = Buffer.concat(chunks);
       }
-
-      const request = new Request(url, { method: req.method, headers, body, duplex: 'half' });
-
-      try {
-        const response = await app.fetch(request);
-        const buf = Buffer.from(await response.arrayBuffer());
-        const headerObj: Record<string, string> = {};
-        response.headers.forEach((v, k) => { headerObj[k] = v; });
-        res.writeHead(response.status, headerObj);
-        res.end(buf);
-      } catch {
-        res.writeHead(500, { 'content-type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Internal server error' }));
-      }
-    },
-  );
-
+      const request = new Request(url, { method: req.method, headers, body });
+      const response = await app.fetch(request);
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const responseHeaders: Record<string, string> = {};
+      response.headers.forEach((value, key) => { responseHeaders[key] = value; });
+      res.writeHead(response.status, responseHeaders);
+      res.end(buffer);
+    } catch (error) {
+      console.error(JSON.stringify({ level: 'error', event: 'request_failed', message: error instanceof Error ? error.message : 'unknown' }));
+      if (!res.headersSent) respondJson(res, 500, { error: 'Internal server error' });
+      else res.end();
+    }
+  });
   server.listen(port);
+  return server;
+}
+
+function respondJson(res: ServerResponse, status: number, payload: unknown): void {
+  res.writeHead(status, { 'content-type': 'application/json' });
+  res.end(JSON.stringify(payload));
 }

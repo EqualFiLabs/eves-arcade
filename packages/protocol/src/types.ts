@@ -9,6 +9,11 @@ export interface SchemaIdentity {
   version: number;
 }
 
+export interface VerifierIdentity {
+  id: string;
+  revision: number;
+}
+
 export type VerificationDescriptor =
   | { kind: 'input-trace'; schema: SchemaIdentity; encodingVersion: number }
   | { kind: 'none' };
@@ -30,6 +35,7 @@ export interface CanonicalGameResult {
 export interface SessionTicket {
   sessionId: string;
   game: GameIdentity;
+  verifier: VerifierIdentity;
   buildVersion: string;
   seed: number;
   issuedAt: number;
@@ -94,8 +100,10 @@ export interface SubmissionAccepted {
 
 export interface SubmissionRejected {
   accepted: false;
+  code: string;
   reason: string;
   flagged: boolean;
+  retryable: boolean;
 }
 
 export type SubmissionResponse = SubmissionAccepted | SubmissionRejected;

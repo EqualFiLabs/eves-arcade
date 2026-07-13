@@ -93,7 +93,8 @@ Only consider those skills if a genuinely presentation-only physical effect is n
 - Default keyboard bindings are defined in `design.md` (`InputMapper` section) — ArrowKeys + Z/X/C/V + Shift + Enter + M. Keep keyboard fully playable; gamepad is optional (Req 5.10/5.11).
 - Copy is parody meme tone but legally safe: no copyrighted assets, no protected brands as identity, no unverified factual claims (Reqs 4, 12.8, 17). Put copy in `packages/content`, never hardcode into scenes.
 - Debug overlays off by default in production; toggle via dev flag/query param (Reqs 16.3, 16.6).
-- No backend, no wallet, no accounts, no blockchain (Req 18). Static deploy only.
+- Backend work is confined to `apps/api` and the shared protocol/core contracts.
+  No wallet, accounts, blockchain, payouts, or reward mechanics ship in V1.
 
 ## Definition of done for a task
 

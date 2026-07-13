@@ -5,7 +5,7 @@
  * server can verify that a ticket was issued by this server and has not been
  * tampered with.
  */
-import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { SessionTicket } from '@rpr/protocol';
 
 /** Builds the canonical string that the HMAC covers. */
@@ -14,6 +14,8 @@ function canonical(ticket: Omit<SessionTicket, 'sig'>): string {
     ticket.sessionId,
     ticket.game.id,
     ticket.game.version,
+    ticket.verifier.id,
+    ticket.verifier.revision,
     ticket.buildVersion,
     ticket.seed,
     ticket.issuedAt,
@@ -44,4 +46,8 @@ export function verifyTicketSig(ticket: SessionTicket, secret: string): boolean 
 /** Generates a new session ID. */
 export function newSessionId(): string {
   return randomUUID();
+}
+
+export function newSeed(): number {
+  return randomInt(0, 0x8000_0000);
 }

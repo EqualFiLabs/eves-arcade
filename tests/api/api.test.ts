@@ -4,6 +4,8 @@ import { loadConfig } from '../../apps/api/src/config';
 import { Store } from '../../apps/api/src/store';
 import { signTicket, verifyTicketSig } from '../../apps/api/src/crypto';
 import { verifyRpr } from '../../apps/api/src/verify/rpr';
+import { RPR_VERIFIER } from '../../apps/api/src/registry';
+import { VerificationCapacityError } from '../../apps/api/src/verify/executor';
 import { terminalRprFixture } from '../fixtures/rpr-terminal';
 import {
   RPR_INPUT_SCHEMA,
@@ -35,6 +37,7 @@ function makeTicket(overrides: Partial<Omit<SessionTicket, 'sig'>> = {}): Sessio
   return signTicket({
     sessionId: crypto.randomUUID(),
     game: GAME,
+    verifier: RPR_VERIFIER,
     buildVersion: TEST_BUILD,
     seed: 42,
     issuedAt: Date.now(),
@@ -98,6 +101,7 @@ describe('POST /sessions', () => {
     expect(response.status).toBe(201);
     const { ticket } = await response.json();
     expect(ticket).toMatchObject(request);
+    expect(ticket.verifier).toEqual(RPR_VERIFIER);
     expect(ticket.seed).toBeTypeOf('number');
     expect(ticket.sig).toMatch(/^[0-9a-f]{64}$/);
     expect(verifyTicketSig(ticket, TEST_SECRET)).toBe(true);
@@ -165,6 +169,16 @@ describe('POST /results', () => {
     expect(store.consumeTicket(ticket.sessionId)).not.toBeNull();
   });
 
+  it('transitions an expired ticket to a terminal non-retryable state', async () => {
+    const api = app();
+    const ticket = makeTicket({ issuedAt: Date.now() - 10_000, expiresAt: Date.now() - 1 });
+    store.saveTicket(ticket);
+    const response = await postResult(api, await validSubmission(ticket));
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({ code: 'ticket_expired', retryable: false });
+    expect(store.consumeTicket(ticket.sessionId)).toBeNull();
+  });
+
   it.each([
     ['sessionId', 'different-session'],
     ['buildVersion', 'different-build'],
@@ -189,7 +203,7 @@ describe('POST /results', () => {
     submission.claimedResult.game = { ...GAME, version: '9.9.9' };
     const response = await postResult(api, submission);
     expect(response.status).toBe(422);
-    expect((await response.json()).reason).toMatch(/version mismatch/i);
+    expect((await response.json()).reason).toMatch(/identity mismatch/i);
     expect(store.consumeTicket(ticket.sessionId)).not.toBeNull();
   });
 
@@ -314,15 +328,45 @@ describe('POST /results', () => {
     expect(store.getLeaderboard(ticket.game.id, 'desc')).toEqual([]);
   });
 
-  it('enforces ticket single-use after accepting a replay', async () => {
+  it('returns the canonical stored outcome for an idempotent retry', async () => {
     const api = app();
     const ticket = makeTicket();
     store.saveTicket(ticket);
     const submission = await validSubmission(ticket);
     expect((await postResult(api, submission)).status).toBe(200);
     const second = await postResult(api, submission);
-    expect(second.status).toBe(422);
-    expect((await second.json()).reason).toMatch(/used|unknown/i);
+    expect(second.status).toBe(200);
+    expect(await second.json()).toMatchObject({ accepted: true });
+  });
+
+  it('rejects conflicting reuse after a terminal accepted submission', async () => {
+    const api = app();
+    const ticket = makeTicket();
+    store.saveTicket(ticket);
+    const submission = await validSubmission(ticket);
+    expect((await postResult(api, submission)).status).toBe(200);
+    submission.playerHandle = 'different';
+    const response = await postResult(api, submission);
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'ticket_conflict', retryable: false });
+  });
+
+  it('releases the ticket when worker capacity fails', async () => {
+    const localStore = new Store();
+    const api = createApp({
+      config: { ...baseConfig, ticketSecret: TEST_SECRET },
+      store: localStore,
+      executor: {
+        ready: false,
+        verify: async () => { throw new VerificationCapacityError('queue full', 'queue-full'); },
+      },
+    });
+    const ticket = makeTicket();
+    localStore.saveTicket(ticket);
+    const response = await postResult(api, await validSubmission(ticket));
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: 'queue-full', retryable: true });
+    expect(localStore.consumeTicket(ticket.sessionId)).not.toBeNull();
   });
 });
 
@@ -335,6 +379,7 @@ describe('GET /leaderboards/:categoryId', () => {
         playerHandle: sessionId, outcome: 'win', score, stats: { frames: 60 }, durationMs: 1,
         inputTrace: new Uint8Array(), traceEncodingVersion: 1, inputTraceHash: '', replayHash: '',
         verified: true, reviewFlag: false, submittedAt: score,
+        categoryValues: { 'rpr.score': score },
       });
     }
     const response = await api.request('/leaderboards/rpr.score');
