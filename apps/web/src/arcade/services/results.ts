@@ -1,75 +1,85 @@
-import type { GameResult, ScoreSubmission, SubmissionResponse } from '@rpr/protocol';
-import { TRACE_ENCODING_VERSION } from '@rpr/protocol';
+import {
+  sha256HexBytes,
+  type GameIdentity,
+  type GameResultClaim,
+  type ScoreSubmission,
+  type SessionTicket,
+  type SubmissionResponse,
+} from '@rpr/protocol';
+import type { GameCompletion } from '../types';
 
-/**
- * Result submission client + local personal-bests (Req 9.7, 11.3, 11.4).
- *
- * Ranked results are submitted to the API for replay verification. Unranked
- * results store a local personal best in localStorage — never submitted.
- */
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
-const API_URL =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) ??
-  '/api';
-
-const SUBMISSION_TIMEOUT_MS = 10_000;
-
-/** Encodes a Uint8Array to base64 for JSON transport. */
-function bytesToBase64(bytes: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]!);
-  return btoa(binary);
-}
-
-/**
- * Submits a ranked result to the API. Returns the server response (accepted
- * with placement, or rejected), or null on network failure.
- */
 export async function submitResult(
-  result: GameResult,
-  packedTrace: Uint8Array,
-  ticket: ScoreSubmission['ticket'],
+  completion: GameCompletion,
+  game: GameIdentity,
+  buildVersion: string,
+  ticket: SessionTicket,
 ): Promise<SubmissionResponse | null> {
+  const evidence = completion.evidence.kind === 'none'
+    ? { kind: 'none' as const }
+    : {
+        kind: 'input-trace' as const,
+        schema: completion.evidence.schema,
+        encodingVersion: completion.evidence.encodingVersion,
+        data: toBase64(completion.evidence.bytes),
+        hash: await sha256HexBytes(completion.evidence.bytes),
+      };
+  const claimedResult: GameResultClaim = {
+    game,
+    buildVersion,
+    sessionId: ticket.sessionId,
+    seed: ticket.seed,
+    result: completion.result,
+  };
+  const body: ScoreSubmission = {
+    ticket,
+    evidence,
+    claimedResult,
+    clientTimestamp: Date.now(),
+  };
+
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), SUBMISSION_TIMEOUT_MS);
-    const submission: ScoreSubmission = {
-      ticket,
-      inputTrace: bytesToBase64(packedTrace),
-      traceEncodingVersion: TRACE_ENCODING_VERSION,
-      claimedResult: result,
-      clientTimestamp: Date.now(),
-    };
-    const res = await fetch(`${API_URL}/results`, {
+    const response = await fetch(`${API_BASE}/results`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(submission),
-      signal: controller.signal,
+      body: JSON.stringify(body),
     });
-    clearTimeout(timeout);
-    return (await res.json()) as SubmissionResponse;
+    return await response.json() as SubmissionResponse;
   } catch {
+    // Network failures are represented explicitly by null so the shell can
+    // preserve the local result without falsely labelling it verified.
     return null;
   }
 }
 
-/** Stores a local personal best for unranked play (Req 11.3). */
-export function storeLocalBest(gameId: string, score: number): void {
-  const key = `arcade:best:${gameId}`;
+export function storeLocalBest(
+  id: string,
+  metric: string,
+  value: number,
+  order: 'asc' | 'desc' = 'desc',
+): void {
   try {
-    const current = Number(localStorage.getItem(key) ?? 0);
-    if (score > current) localStorage.setItem(key, String(score));
+    const key = `arcade:best:${id}:${metric}`;
+    const previous = Number(localStorage.getItem(key));
+    if (!Number.isFinite(previous) || (order === 'desc' ? value > previous : value < previous)) {
+      localStorage.setItem(key, String(value));
+    }
   } catch {
-    // Private mode / quota — best stays in-memory only.
+    // Storage is an optional enhancement and may be blocked by the browser.
   }
 }
 
-/** Reads the local personal best for unranked play. */
-export function getLocalBest(gameId: string): number {
+export function getLocalBest(id: string, metric: string): number {
   try {
-    return Number(localStorage.getItem(`arcade:best:${gameId}`) ?? 0);
+    return Number(localStorage.getItem(`arcade:best:${id}:${metric}`)) || 0;
   } catch {
     return 0;
   }
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
 }

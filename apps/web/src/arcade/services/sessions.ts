@@ -1,72 +1,46 @@
+import type { GameIdentity, SessionRequest, SessionResponse } from '@rpr/protocol';
 import type { GameSession } from '../types';
-import type { SessionRequest, SessionResponse } from '@rpr/protocol';
 
-/**
- * Session ticket client (Req 9.5, 9.7).
- *
- * Requests a signed ticket from the API with a short timeout. On any failure
- * (API down, network error, non-OK response) falls back to an unranked local
- * session with a random seed — the game remains fully playable offline
- * (Property 7).
- */
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
-const API_URL =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL) ??
-  '/api';
-
-const SESSION_TIMEOUT_MS = 3000;
-
-/** Suitable 31-bit positive integer seed for a deterministic sim. */
-function randomSeed(): number {
-  return Math.floor(Math.random() * 0x7fffffff);
+export class SessionRequestRejectedError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'SessionRequestRejectedError';
+  }
 }
 
-/**
- * Requests a ranked session ticket. Falls back to an unranked local session on
- * any error (Req 9.5, Property 7).
- */
-export async function fetchSession(
-  gameId: string,
-  gameVersion: string,
-  buildVersion: string,
-): Promise<GameSession> {
-  const request: SessionRequest = { gameId, gameVersion, buildVersion };
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), SESSION_TIMEOUT_MS);
+export async function fetchSession(game: GameIdentity, buildVersion: string): Promise<GameSession> {
+  const body: SessionRequest = { game, buildVersion };
   try {
-    const res = await fetch(`${API_URL}/sessions`, {
+    const response = await fetch(`${API_BASE}/sessions`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(request),
-      signal: controller.signal,
+      body: JSON.stringify(body),
     });
-    if (!res.ok) {
-      if (res.status >= 400 && res.status < 500) {
-        const body = await res.json().catch(() => null) as { error?: string } | null;
-        throw new SessionRequestRejectedError(body?.error ?? `HTTP ${res.status}`);
-      }
-      throw new Error(`HTTP ${res.status}`);
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      throw new SessionRequestRejectedError(
+        payload.error ?? `Session request failed (${response.status})`,
+        response.status,
+      );
     }
-    const data = (await res.json()) as SessionResponse;
+    const { ticket } = await response.json() as SessionResponse;
     return {
-      ticket: data.ticket,
-      seed: data.ticket.seed,
-      ranked: true,
+      seed: ticket.seed,
       startedAt: Date.now(),
+      ranking: { kind: 'ticketed', ticket },
     };
   } catch (error) {
     if (error instanceof SessionRequestRejectedError) throw error;
     return {
       seed: randomSeed(),
-      ranked: false,
       startedAt: Date.now(),
+      ranking: { kind: 'unranked', reason: 'service-unavailable' },
     };
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
-export class SessionRequestRejectedError extends Error {}
-
-export { API_URL };
+function randomSeed(): number {
+  return Math.floor(Math.random() * 0x7fffffff);
+}

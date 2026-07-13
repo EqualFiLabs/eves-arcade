@@ -11,21 +11,27 @@ import {
 } from '@rpr/sim';
 import {
   bogdanoffDefinition,
+  distributionHooks,
   marketControlRoom,
+  shareCopy,
   sminemDefinition,
   v1Moves,
 } from '@rpr/content';
 import { GamepadSource, KeyboardSource, MergingSource, TraceRecorder, TouchOverlaySource } from '@rpr/controls';
 import type { InputSource } from '@rpr/controls';
-import type { ArcadeGameContext, GameResult } from '../../../arcade/types';
-import { RprMatch, deriveRprCanonicalResult } from '@rpr/rug-pull-rumble-core';
+import type { ArcadeGameContext } from '../../../arcade/types';
+import {
+  RPR_INPUT_SCHEMA,
+  RPR_TRACE_ENCODING_VERSION,
+  RprMatch,
+  deriveRprCanonicalResult,
+} from '@rpr/rug-pull-rumble-core';
 import { InputMapper } from '../input/InputMapper';
 import { RPR_KEYBOARD_BINDINGS, RPR_GAMEPAD_BINDINGS } from '../input/bindings';
 import type { RprButton } from '../input/buttons';
 import { TouchRprSource } from '../input/touch-adapter';
 import type { TouchButton, TouchAxis } from '../input/touch-adapter';
 import { RPR_TOUCH_LAYOUT } from '../touch-layout';
-import { rugPullRumbleManifest } from '../manifest';
 import { FighterRenderer } from '../renderers/FighterRenderer';
 import { HudView } from '../renderers/HudView';
 import { StageRenderer } from '../renderers/StageRenderer';
@@ -50,7 +56,7 @@ const KO_RESULT_DELAY_MS = 2000;
  *
  * On KO the scene delays briefly (KO feedback), asks the core for the canonical
  * result, attaches session and trace identity, and calls
- * `ctx.onResult` exactly once. The shell tears down the Phaser instance and
+ * `ctx.complete` exactly once. The shell tears down the Phaser instance and
  * shows the DOM result screen (Req 4.1).
  */
 export class FightScene extends Phaser.Scene {
@@ -90,8 +96,8 @@ export class FightScene extends Phaser.Scene {
     const gamepad = new GamepadSource(RPR_GAMEPAD_BINDINGS);
     const sources: InputSource<RprButton>[] = [keyboard, gamepad];
 
-    if (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0 && ctx?.parent) {
-      const overlay = new TouchOverlaySource<TouchButton, TouchAxis>(ctx.parent, RPR_TOUCH_LAYOUT);
+    if (typeof navigator !== 'undefined' && navigator.maxTouchPoints > 0 && ctx?.mount) {
+      const overlay = new TouchOverlaySource<TouchButton, TouchAxis>(ctx.mount, RPR_TOUCH_LAYOUT);
       sources.push(new TouchRprSource(overlay));
     }
 
@@ -196,7 +202,7 @@ export class FightScene extends Phaser.Scene {
 
   /**
    * Attaches platform identity to the core-owned canonical result and calls
-   * `ctx.onResult` exactly once (Req 4.1).
+   * `ctx.complete` exactly once (Req 4.1).
    */
   private async reportResult(): Promise<void> {
     if (this.resultReported) return;
@@ -205,24 +211,34 @@ export class FightScene extends Phaser.Scene {
     const ctx = this.game.registry.get('arcade') as ArcadeGameContext | undefined;
     if (!ctx) return;
 
-    const inputTraceHash = await this.recorder.hash();
     const canonical = await deriveRprCanonicalResult(this.match.state);
-
-    const result: GameResult = {
-      gameId: rugPullRumbleManifest.id,
-      gameVersion: rugPullRumbleManifest.version,
-      buildVersion: __BUILD_VERSION__,
-      sessionId: ctx.session.ticket?.sessionId ?? '',
-      seed: ctx.session.seed,
-      outcome: canonical.outcome,
-      score: canonical.score,
-      stats: canonical.stats,
-      durationMs: canonical.durationMs,
-      inputTraceHash,
-      replayHash: canonical.replayHash,
-    };
-
-    ctx.onResult(result, this.recorder.pack());
+    const won = canonical.outcome === 'win';
+    const shareLines = won ? shareCopy.win : shareCopy.loss;
+    const links = distributionHooks
+      .filter((hook) => hook.enabled && hook.placement.startsWith('result-'))
+      .map((hook) => ({ label: hook.label, url: hook.url }));
+    ctx.complete({
+      result: canonical,
+      presentation: {
+        headline: won ? 'VICTORY' : 'DEFEAT',
+        tone: won ? 'positive' : 'negative',
+        primaryMetric: { metric: 'score', label: 'Score' },
+        stats: [
+          { metric: 'damageDealt', label: 'Damage Dealt' },
+          { metric: 'damageTaken', label: 'Damage Taken' },
+          { metric: 'frames', label: 'Sim Frames' },
+        ],
+        showDuration: true,
+        share: { text: shareLines[0]!, url: shareCopy.url },
+        links,
+      },
+      evidence: {
+        kind: 'input-trace',
+        schema: RPR_INPUT_SCHEMA,
+        encodingVersion: RPR_TRACE_ENCODING_VERSION,
+        bytes: this.recorder.pack(),
+      },
+    });
   }
 
   shutdown(): void {

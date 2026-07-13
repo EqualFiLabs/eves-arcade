@@ -12,8 +12,8 @@ import type { SessionTicket } from '@rpr/protocol';
 function canonical(ticket: Omit<SessionTicket, 'sig'>): string {
   return [
     ticket.sessionId,
-    ticket.gameId,
-    ticket.gameVersion,
+    ticket.game.id,
+    ticket.game.version,
     ticket.buildVersion,
     ticket.seed,
     ticket.issuedAt,

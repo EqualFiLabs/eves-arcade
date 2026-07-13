@@ -30,13 +30,17 @@ describe('canonical RPR core', () => {
     expect(fixture.canonical).toMatchInlineSnapshot(`
       {
         "durationMs": 11283,
-        "outcome": "loss",
-        "replayHash": "254078a57fb035a7bfefeff53e62ec9723115f311a033ef99b6e92025d03d7b4",
-        "score": 555,
-        "stats": {
+        "metrics": {
           "damageDealt": 111,
           "damageTaken": 100,
           "frames": 677,
+          "score": 555,
+        },
+        "outcome": "loss",
+        "replayHash": "254078a57fb035a7bfefeff53e62ec9723115f311a033ef99b6e92025d03d7b4",
+        "schema": {
+          "id": "rpr.result",
+          "version": 1,
         },
       }
     `);
@@ -81,8 +85,8 @@ describe('canonical RPR core', () => {
     const winResult = await deriveRprCanonicalResult(win);
     expect(winResult).toMatchObject({
       outcome: 'win',
-      score: 1000 + Math.floor((win.player.health / win.player.maxHealth) * 500),
-      stats: {
+      metrics: {
+        score: 1000 + Math.floor((win.player.health / win.player.maxHealth) * 500),
         damageDealt: win.cpu.maxHealth,
         damageTaken: win.player.maxHealth - win.player.health,
         frames: 120,
@@ -98,8 +102,12 @@ describe('canonical RPR core', () => {
     const lossResult = await deriveRprCanonicalResult(loss);
     expect(lossResult).toMatchObject({
       outcome: 'loss',
-      score: 125,
-      stats: { damageDealt: 25, damageTaken: loss.player.maxHealth, frames: 60 },
+      metrics: {
+        score: 125,
+        damageDealt: 25,
+        damageTaken: loss.player.maxHealth,
+        frames: 60,
+      },
       durationMs: 1000,
     });
   });

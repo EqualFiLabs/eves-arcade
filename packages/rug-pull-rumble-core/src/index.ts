@@ -23,24 +23,34 @@ import {
 import {
   sha256HexBytes,
   unpackTrace,
+  type CanonicalGameResult,
   type DecodedTraceFrame,
 } from '@rpr/protocol';
-export { RPR_GAME_ID, RPR_GAME_VERSION } from './identity';
+import { RPR_RESULT_SCHEMA } from './identity';
+export {
+  RPR_CONTRACT,
+  RPR_GAME_ID,
+  RPR_GAME_VERSION,
+  RPR_INPUT_SCHEMA,
+  RPR_RESULT_SCHEMA,
+  RPR_TRACE_ENCODING_VERSION,
+} from './identity';
 
 export const RPR_TRACE_BUTTON_COUNT = 13;
 export const RPR_TRACE_AXIS_COUNT = 0;
 
-export interface RprStats {
+export interface RprMetrics {
   [key: string]: number;
+  score: number;
   damageDealt: number;
   damageTaken: number;
   frames: number;
 }
 
-export interface RprCanonicalResult {
+export interface RprCanonicalResult extends CanonicalGameResult {
+  schema: typeof RPR_RESULT_SCHEMA;
   outcome: 'win' | 'loss';
-  score: number;
-  stats: RprStats;
+  metrics: RprMetrics;
   durationMs: number;
   replayHash: string;
 }
@@ -115,11 +125,16 @@ export async function deriveRprCanonicalResult(state: GameState): Promise<RprCan
   const damageDealt = Math.max(0, state.cpu.maxHealth - state.cpu.health);
   const damageTaken = Math.max(0, state.player.maxHealth - state.player.health);
   return {
+    schema: RPR_RESULT_SCHEMA,
     outcome: won ? 'win' : 'loss',
-    score: won
-      ? 1000 + Math.floor((state.player.health / state.player.maxHealth) * 500)
-      : damageDealt * 5,
-    stats: { damageDealt, damageTaken, frames: state.frame },
+    metrics: {
+      score: won
+        ? 1000 + Math.floor((state.player.health / state.player.maxHealth) * 500)
+        : damageDealt * 5,
+      damageDealt,
+      damageTaken,
+      frames: state.frame,
+    },
     durationMs: Math.round(state.frame * SIM_STEP_MS),
     replayHash: await sha256HexBytes(new TextEncoder().encode(serialized)),
   };

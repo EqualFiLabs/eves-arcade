@@ -55,7 +55,7 @@ shims should be temporary and should have an explicit removal phase.
 | 0 | Baseline and architecture record | COMPLETE | None |
 | 1 | Repair the ranked vertical slice | COMPLETE | Phase 0 |
 | 2 | Make each game core the source of truth | COMPLETE | Phase 1 |
-| 3 | Redesign the platform contracts and capabilities | NOT STARTED | Phase 2 |
+| 3 | Redesign the platform contracts and capabilities | COMPLETE | Phase 2 |
 | 4 | Harden the shell lifecycle | NOT STARTED | Phase 3 |
 | 5 | Make shared web surfaces game-neutral | NOT STARTED | Phase 3 |
 | 6 | Introduce explicit canonical input and trace schemas | NOT STARTED | Phases 2–3 |
@@ -590,15 +590,40 @@ This is a direction, not an approved final API.
 
 ## Work Log
 
-Status: `NOT STARTED`
+Status: `COMPLETE`
 
 Planning document:
 
+- `phases/phase-3-platform-contracts-and-capabilities.md`
+
 Implementation notes:
+
+- Replaced the flat RPR-shaped wire model with nested game/schema identities,
+  canonical metric maps, discriminated verification evidence, and explicit
+  ticketed/unranked sessions.
+- Added a synchronous launch handle with observable readiness, reasoned
+  suspension, abort context, and manifest-declared input/replay/suspension
+  capabilities.
+- Made result presentation game-owned but text/link-only, then migrated RPR and
+  the API end to end without aliases or compatibility shims.
+- Pulled the generic safe result renderer portion of Phase 5 forward because it
+  is required to prove the Phase 3 completion contract.
 
 Verification evidence:
 
+- Typecheck and lint pass across the workspace.
+- 25 Vitest files with 204 tests pass, including compiled fighter, launcher,
+  score-only, and unranked contract examples.
+- Production build and `git diff --check` pass.
+- All 17 Playwright desktop/mobile flows pass.
+
 Deferred items:
+
+- Phase 4 retains full shell state-machine and asynchronous race hardening.
+- Phase 5 retains Phaser factory configuration, replay entry-point neutrality,
+  CSS extraction, and accessibility refinement.
+- Phase 6 retains named action schemas and Trace V2; Phase 7 retains verifier
+  registries, generic category dispatch, and durable transactional storage.
 
 ---
 

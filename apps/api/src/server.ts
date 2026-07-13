@@ -12,7 +12,10 @@ import {
   type SubmissionResponse,
 } from '@rpr/protocol';
 import {
+  RPR_INPUT_SCHEMA,
   RPR_GAME_ID,
+  RPR_RESULT_SCHEMA,
+  RPR_TRACE_ENCODING_VERSION,
   decodeRprTrace,
 } from '@rpr/rug-pull-rumble-core';
 import {
@@ -54,9 +57,9 @@ export function createApp(deps: AppDeps): Hono {
       return invalidRequest(c, error);
     }
 
-    const supportedBuilds = config.supportedGameBuilds[request.gameId]?.[request.gameVersion];
+    const supportedBuilds = config.supportedGameBuilds[request.game.id]?.[request.game.version];
     if (!supportedBuilds) {
-      return c.json({ error: `Unsupported game version: ${request.gameId}@${request.gameVersion}` }, 400);
+      return c.json({ error: `Unsupported game version: ${request.game.id}@${request.game.version}` }, 400);
     }
     if (!supportedBuilds.includes(request.buildVersion)) {
       return c.json({ error: `Unsupported build: ${request.buildVersion}` }, 400);
@@ -65,8 +68,7 @@ export function createApp(deps: AppDeps): Hono {
     const now = Date.now();
     const ticket = signTicket({
       sessionId: newSessionId(),
-      gameId: request.gameId,
-      gameVersion: request.gameVersion,
+      game: request.game,
       buildVersion: request.buildVersion,
       seed: Math.floor(Math.random() * 0x7fffffff),
       issuedAt: now,
@@ -92,7 +94,7 @@ export function createApp(deps: AppDeps): Hono {
     }
     if (Date.now() > ticket.expiresAt) return reject(c, 'Ticket expired', false);
 
-    const supportedBuilds = config.supportedGameBuilds[ticket.gameId]?.[ticket.gameVersion];
+    const supportedBuilds = config.supportedGameBuilds[ticket.game.id]?.[ticket.game.version];
     if (!supportedBuilds?.includes(ticket.buildVersion)) {
       return reject(c, 'Unsupported ticket game, version, or build', true);
     }
@@ -103,17 +105,24 @@ export function createApp(deps: AppDeps): Hono {
     const storedTicket = store.getTicket(ticket.sessionId);
     if (!storedTicket) return reject(c, 'Ticket unknown', false);
 
-    if (submission.traceEncodingVersion !== TRACE_ENCODING_VERSION) {
+    if (submission.evidence.kind !== 'input-trace') return reject(c, 'Input trace evidence required', false);
+    if (!schemasEqual(submission.evidence.schema, RPR_INPUT_SCHEMA)) {
+      return reject(c, 'Input schema mismatch', false);
+    }
+    if (submission.evidence.encodingVersion !== RPR_TRACE_ENCODING_VERSION) {
       return reject(c, 'Unsupported trace encoding version', false);
+    }
+    if (!schemasEqual(claimedResult.result.schema, RPR_RESULT_SCHEMA)) {
+      return reject(c, 'Result schema mismatch', false);
     }
 
     let traceBytes: Uint8Array;
     let replayInputs: ReturnType<typeof decodeRprTrace>['inputs'];
     const maxFrames = Math.ceil(config.ticketTtlMs / SIM_STEP_MS);
     try {
-      traceBytes = decodeBase64Strict(submission.inputTrace);
+      traceBytes = decodeBase64Strict(submission.evidence.data);
       const decoded = decodeRprTrace(traceBytes, maxFrames);
-      if (decoded.version !== submission.traceEncodingVersion) {
+      if (decoded.version !== submission.evidence.encodingVersion) {
         return reject(c, 'Trace version does not match its envelope', false);
       }
       replayInputs = decoded.inputs;
@@ -123,11 +132,11 @@ export function createApp(deps: AppDeps): Hono {
     }
 
     const inputTraceHash = await sha256HexBytes(traceBytes);
-    if (inputTraceHash !== claimedResult.inputTraceHash) {
+    if (inputTraceHash !== submission.evidence.hash) {
       return reject(c, 'Input trace hash mismatch', true);
     }
 
-    const claimedFrames = claimedResult.stats.frames;
+    const claimedFrames = claimedResult.result.metrics.frames;
     if (typeof claimedFrames !== 'number'
       || !Number.isSafeInteger(claimedFrames)
       || claimedFrames < 0
@@ -140,8 +149,8 @@ export function createApp(deps: AppDeps): Hono {
     const consumed = store.consumeTicketIfMatches(ticket);
     if (!consumed) return reject(c, 'Ticket already used or does not match issuance', false);
 
-    if (ticket.gameId !== RPR_GAME_ID) {
-      return reject(c, `Verification not implemented for game: ${ticket.gameId}`, false);
+    if (ticket.game.id !== RPR_GAME_ID) {
+      return reject(c, `Verification not implemented for game: ${ticket.game.id}`, false);
     }
 
     let canonical: VerifyResult;
@@ -160,13 +169,13 @@ export function createApp(deps: AppDeps): Hono {
 
     store.saveResult({
       sessionId: ticket.sessionId,
-      gameId: ticket.gameId,
-      gameVersion: ticket.gameVersion,
+      gameId: ticket.game.id,
+      gameVersion: ticket.game.version,
       buildVersion: ticket.buildVersion,
       playerHandle: submission.playerHandle ?? 'anon',
       outcome: canonical.outcome,
-      score: canonical.score,
-      stats: canonical.stats,
+      score: canonical.metrics.score,
+      stats: canonical.metrics,
       durationMs: canonical.durationMs,
       inputTrace: traceBytes,
       traceEncodingVersion: TRACE_ENCODING_VERSION,
@@ -178,14 +187,9 @@ export function createApp(deps: AppDeps): Hono {
     });
 
     const category = config.leaderboardCategories['rpr.score']!;
-    const placement = store.countBetterThan(category.gameId, canonical.score, category.order) + 1;
+    const placement = store.countBetterThan(category.gameId, canonical.metrics.score, category.order) + 1;
     const total = store.totalVerified(category.gameId);
-    const response: SubmissionResponse = {
-      accepted: true,
-      canonicalScore: canonical.score,
-      placement,
-      totalEntries: total,
-    };
+    const response: SubmissionResponse = { accepted: true, canonicalResult: canonical, placements: [{ categoryId: 'rpr.score', placement, totalEntries: total }] };
     return c.json(response, 200);
   });
 
@@ -199,10 +203,9 @@ export function createApp(deps: AppDeps): Hono {
       categoryId,
       entries: entries.map((result) => ({
         sessionId: result.sessionId,
-        score: result.score,
-        outcome: result.outcome,
+        game: { id: result.gameId, version: result.gameVersion },
+        result: { schema: RPR_RESULT_SCHEMA, outcome: result.outcome, metrics: { ...result.stats, score: result.score }, durationMs: result.durationMs, replayHash: result.replayHash },
         playerHandle: result.playerHandle,
-        gameVersion: result.gameVersion,
         submittedAt: result.submittedAt,
       })),
     };
@@ -228,25 +231,33 @@ function reject(c: Context, reason: string, flagged: boolean) {
 
 function resultIdentityError(
   ticket: import('@rpr/protocol').SessionTicket,
-  result: import('@rpr/protocol').GameResult,
+  result: import('@rpr/protocol').GameResultClaim,
 ): string | null {
   if (result.sessionId !== ticket.sessionId) return 'Session ID mismatch';
-  if (result.gameId !== ticket.gameId) return 'Game ID mismatch';
-  if (result.gameVersion !== ticket.gameVersion) return 'Game version mismatch';
+  if (result.game.id !== ticket.game.id) return 'Game ID mismatch';
+  if (result.game.version !== ticket.game.version) return 'Game version mismatch';
   if (result.buildVersion !== ticket.buildVersion) return 'Build version mismatch';
   if (result.seed !== ticket.seed) return 'Seed mismatch';
   return null;
 }
 
 function claimMatchesCanonical(
-  claim: import('@rpr/protocol').GameResult,
+  claim: import('@rpr/protocol').GameResultClaim,
   canonical: VerifyResult,
 ): boolean {
-  return claim.outcome === canonical.outcome
-    && claim.score === canonical.score
-    && claim.durationMs === canonical.durationMs
-    && claim.replayHash === canonical.replayHash
-    && numericRecordsEqual(claim.stats, canonical.stats);
+  return claim.result.outcome === canonical.outcome
+    && schemasEqual(claim.result.schema, canonical.schema)
+    && claim.result.metrics.score === canonical.metrics.score
+    && claim.result.durationMs === canonical.durationMs
+    && claim.result.replayHash === canonical.replayHash
+    && numericRecordsEqual(claim.result.metrics, canonical.metrics);
+}
+
+function schemasEqual(
+  a: import('@rpr/protocol').SchemaIdentity,
+  b: import('@rpr/protocol').SchemaIdentity,
+): boolean {
+  return a.id === b.id && a.version === b.version;
 }
 
 function numericRecordsEqual(a: Record<string, number>, b: Record<string, number>): boolean {
@@ -265,18 +276,18 @@ function saveReviewResult(
   const { ticket, claimedResult } = submission;
   store.saveResult({
     sessionId: ticket.sessionId,
-    gameId: ticket.gameId,
-    gameVersion: ticket.gameVersion,
+    gameId: ticket.game.id,
+    gameVersion: ticket.game.version,
     buildVersion: ticket.buildVersion,
     playerHandle: submission.playerHandle ?? 'anon',
-    outcome: claimedResult.outcome,
-    score: claimedResult.score,
-    stats: claimedResult.stats,
-    durationMs: claimedResult.durationMs,
+    outcome: claimedResult.result.outcome,
+    score: claimedResult.result.metrics.score ?? 0,
+    stats: { ...claimedResult.result.metrics },
+    durationMs: claimedResult.result.durationMs,
     inputTrace: traceBytes,
     traceEncodingVersion: TRACE_ENCODING_VERSION,
     inputTraceHash,
-    replayHash: claimedResult.replayHash,
+    replayHash: claimedResult.result.replayHash ?? '',
     verified: false,
     reviewFlag: true,
     submittedAt: Date.now(),

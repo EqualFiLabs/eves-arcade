@@ -1,5 +1,10 @@
 import * as Phaser from 'phaser';
-import type { ArcadeGameContext, ArcadeGameHandle, ArcadeGameModule } from '../../arcade/types';
+import type {
+  ArcadeGameContext,
+  ArcadeGameHandle,
+  ArcadeGameModule,
+  SuspensionReason,
+} from '../../arcade/types';
 import { createGameConfig } from '../../arcade/phaser/config-factory';
 import { BootScene } from './scenes/BootScene';
 import { UnsupportedBrowserScene } from './scenes/UnsupportedBrowserScene';
@@ -18,25 +23,49 @@ import { FightScene } from './scenes/FightScene';
  */
 export const rugPullRumbleModule: ArcadeGameModule = {
   launch(ctx: ArcadeGameContext): ArcadeGameHandle {
-    const game = new Phaser.Game(
-      createGameConfig({
-        parent: ctx.parent,
+    let resolveReady!: () => void;
+    let rejectReady!: (reason: Error) => void;
+    const ready = new Promise<void>((resolve, reject) => {
+      resolveReady = resolve;
+      rejectReady = reject;
+    });
+
+    const game = new Phaser.Game({
+      ...createGameConfig({
+        parent: ctx.mount,
         scene: [BootScene, UnsupportedBrowserScene, PreloadScene, MenuScene, FightScene],
       }),
-    );
+      callbacks: {
+        // preBoot runs before the first scene, closing the registry race that
+        // exists when values are assigned after new Phaser.Game().
+        preBoot(bootingGame) {
+          bootingGame.registry.set('muted', ctx.settings.muted);
+          bootingGame.registry.set('arcade', ctx);
+          bootingGame.registry.set('arcadeReady', resolveReady);
+          bootingGame.registry.set('arcadeReadyError', rejectReady);
+        },
+      },
+    });
 
     // Bridge shell state into the game: settings seed the registry so existing
     // scene reads (`registry.get('muted')`) keep working; ctx is stashed so
     // in-game settings changes route back to shell storage.
-    game.registry.set('muted', ctx.settings.muted);
-    game.registry.set('arcade', ctx);
-
     if (typeof window !== 'undefined') {
       (window as unknown as { __game?: Phaser.Game }).__game = game;
     }
 
     let destroyed = false;
+    const suspended = new Set<SuspensionReason>();
     return {
+      ready,
+      suspend(reason) {
+        suspended.add(reason);
+        if (!game.isPaused) game.pause();
+      },
+      resume(reason) {
+        suspended.delete(reason);
+        if (suspended.size === 0 && game.isPaused) game.resume();
+      },
       destroy() {
         if (destroyed) return;
         destroyed = true;
@@ -46,7 +75,7 @@ export const rugPullRumbleModule: ArcadeGameModule = {
         }
         // Phaser removes its canvas on destroy(true), but defensively clear any
         // leftover canvas inside the mount element.
-        while (ctx.parent.firstChild) ctx.parent.removeChild(ctx.parent.lastChild!);
+        while (ctx.mount.firstChild) ctx.mount.removeChild(ctx.mount.lastChild!);
       },
     };
   },

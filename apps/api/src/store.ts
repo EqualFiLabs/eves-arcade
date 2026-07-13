@@ -105,8 +105,8 @@ export class Store {
 
 function ticketsEqual(a: SessionTicket, b: SessionTicket): boolean {
   return a.sessionId === b.sessionId
-    && a.gameId === b.gameId
-    && a.gameVersion === b.gameVersion
+    && a.game.id === b.game.id
+    && a.game.version === b.game.version
     && a.buildVersion === b.buildVersion
     && a.seed === b.seed
     && a.issuedAt === b.issuedAt

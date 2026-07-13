@@ -1,30 +1,9 @@
-import type { ArcadeGameManifest } from './types';
-import type { GameResult } from './types';
-import { distributionHooks, shareCopy, gameCopy } from '@rpr/content';
-
-/**
- * Shared DOM result screen (Req 4.1–4.6).
- *
- * Supersedes the in-Phaser `ResultScene`/`ShareView`/`DistributionHookView` from
- * `crypto-fighter-v1` Task 18 (DOM does this better and survives game teardown).
- * Copy and hook content come from `@rpr/content`; the shell calls
- * `renderResultScreen` after `ctx.onResult` fires.
- */
-
-export interface ResultScreenOptions {
-  result: GameResult;
-  manifest: ArcadeGameManifest;
-  submissionStatus: SubmissionStatus;
-  /** Local personal best for unranked play (Req 11.3). */
-  localBest: number;
-  onPlayAgain(): void;
-  onBack(): void;
-}
+import type { CanonicalGameResult, MetricPresentation, ResultPresentation } from './types';
 
 export type SubmissionStatus =
   | { kind: 'unranked' }
   | { kind: 'submitting' }
-  | { kind: 'verified'; canonicalScore: number; placement: number; totalEntries: number }
+  | { kind: 'verified'; result: CanonicalGameResult; placement?: { placement: number; totalEntries: number } }
   | { kind: 'rejected'; reason: string }
   | { kind: 'submission-failed'; message: string };
 
@@ -32,178 +11,202 @@ export interface ResultScreenHandle {
   updateSubmissionStatus(status: SubmissionStatus): void;
 }
 
-/** Renders the result screen into `root` and wires up all actions. */
-export function renderResultScreen(root: HTMLElement, opts: ResultScreenOptions): ResultScreenHandle {
-  const { result, manifest, localBest, onPlayAgain, onBack } = opts;
-  const won = result.outcome === 'win';
-  const outcomeLabel = won
-    ? (gameCopy.playerWin[0] ?? 'VICTORY')
-    : (gameCopy.playerLoss[0] ?? 'DEFEAT');
-
-  const shareLine = pick(won ? shareCopy.win : shareCopy.loss);
-  const hooks = distributionHooks.filter((h) => h.enabled && /^https?:\/\//.test(h.url));
-
-  const statsHtml = Object.entries(result.stats)
-    .map(([k, v]) => `<dt>${escapeHtml(formatStatKey(k))}</dt><dd>${v}</dd>`)
-    .join('');
-
-  root.innerHTML = `
-    <section class="arcade-result" aria-label="result screen">
-      <h2 class="arcade-result-outcome ${won ? 'arcade-win' : 'arcade-loss'}">${escapeHtml(outcomeLabel)}</h2>
-      <div class="arcade-result-game">${escapeHtml(manifest.title)}</div>
-      <div class="arcade-result-score">Score <strong>${result.score}</strong></div>
-      <div class="arcade-result-badge"></div>
-      <div class="arcade-submission-message" hidden></div>
-      ${opts.submissionStatus.kind === 'unranked' && localBest > 0 ? `<div class="arcade-result-best">Personal best: ${localBest}</div>` : ''}
-      <dl class="arcade-result-stats">${statsHtml}</dl>
-      <div class="arcade-result-duration">${formatDuration(result.durationMs)}</div>
-
-      <div class="arcade-share">
-        <p class="arcade-share-text">${escapeHtml(shareLine)}</p>
-        <div class="arcade-share-url">${escapeHtml(shareCopy.url)}</div>
-        <button class="arcade-share-copy" type="button">Copy</button>
-        <span class="arcade-share-status" hidden></span>
-      </div>
-
-      ${hooks.length > 0 ? `
-      <div class="arcade-hooks">
-        ${hooks.map((h) => `<a class="arcade-hook" href="${escapeHtml(h.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(h.label)}</a>`).join('')}
-      </div>` : ''}
-
-      <div class="arcade-result-actions">
-        <button class="arcade-play-again" type="button">Play Again</button>
-        <button class="arcade-back-to-arcade" type="button">← Arcade</button>
-      </div>
-
-      <details class="arcade-result-debug">
-        <summary>Technical details</summary>
-        <dl>
-          <dt>Game</dt><dd>${escapeHtml(result.gameId)} v${escapeHtml(result.gameVersion)}</dd>
-          <dt>Build</dt><dd>${escapeHtml(result.buildVersion)}</dd>
-          <dt>Seed</dt><dd>${result.seed}</dd>
-          <dt>Trace hash</dt><dd><code>${escapeHtml(result.inputTraceHash)}</code></dd>
-          <dt>Replay hash</dt><dd><code>${escapeHtml(result.replayHash)}</code></dd>
-          <dt>Submission</dt><dd class="arcade-submission-detail"></dd>
-        </dl>
-      </details>
-    </section>
-  `;
-
-  // Clipboard copy with visible-text fallback (Req 14.5/14.6)
-  const copyBtn = root.querySelector<HTMLButtonElement>('.arcade-share-copy');
-  const status = root.querySelector<HTMLElement>('.arcade-share-status');
-  copyBtn?.addEventListener('click', async () => {
-    const text = `${shareLine} ${shareCopy.url}`;
-    try {
-      await navigator.clipboard.writeText(text);
-      showStatus(status, 'Copied!');
-    } catch {
-      // Fallback: select the visible text so the user can manually copy
-      const range = document.createRange();
-      range.selectNode(root.querySelector('.arcade-share-text')!);
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-      showStatus(status, 'Selected — press Ctrl+C');
-    }
-  });
-
-  root.querySelector<HTMLButtonElement>('.arcade-play-again')?.addEventListener('click', onPlayAgain);
-  root.querySelector<HTMLButtonElement>('.arcade-back-to-arcade')?.addEventListener('click', onBack);
-
-  const handle: ResultScreenHandle = {
-    updateSubmissionStatus(status) {
-      updateSubmissionStatus(root, status);
-    },
-  };
-  handle.updateSubmissionStatus(opts.submissionStatus);
-  return handle;
+export interface ResultScreenOptions {
+  result: CanonicalGameResult;
+  presentation: ResultPresentation;
+  submissionStatus: SubmissionStatus;
+  localBest: number;
+  onPlayAgain(): void;
+  onBack(): void;
 }
 
-function updateSubmissionStatus(root: HTMLElement, status: SubmissionStatus): void {
-  const badge = root.querySelector<HTMLElement>('.arcade-result-badge');
-  const message = root.querySelector<HTMLElement>('.arcade-submission-message');
-  const detail = root.querySelector<HTMLElement>('.arcade-submission-detail');
-  const score = root.querySelector<HTMLElement>('.arcade-result-score strong');
-  if (!badge || !message || !detail) return;
+export function renderResultScreen(root: HTMLElement, options: ResultScreenOptions): ResultScreenHandle {
+  const section = element('section', 'arcade-result');
+  const heading = element('h2', `arcade-result-outcome arcade-${options.presentation.tone}`);
+  heading.textContent = options.presentation.headline;
+  section.append(heading);
 
-  badge.className = 'arcade-result-badge';
-  message.hidden = true;
-  message.textContent = '';
+  if (options.presentation.summary) {
+    const summary = element('p', 'arcade-result-summary');
+    summary.textContent = options.presentation.summary;
+    section.append(summary);
+  }
 
+  const canonical = element('div', 'arcade-canonical');
+  renderMetrics(canonical, options.result, options.presentation);
+  section.append(canonical);
+
+  const badge = element('div', 'arcade-result-badge');
+  const message = element('div', 'arcade-submission-message');
+  const detail = element('div', 'arcade-submission-detail');
+  section.append(badge, message, detail);
+
+  if (options.localBest) {
+    const best = element('div', 'arcade-result-best');
+    best.textContent = `Personal best: ${options.localBest}`;
+    section.append(best);
+  }
+
+  if (options.presentation.showDuration) {
+    const duration = element('div', 'arcade-result-duration');
+    duration.textContent = `${Math.round(options.result.durationMs / 1000)}s`;
+    section.append(duration);
+  }
+
+  renderShare(section, options.presentation);
+  renderLinks(section, options.presentation);
+
+  const actions = element('div', 'arcade-result-actions');
+  const playAgain = button('Play Again', 'arcade-play-again', options.onPlayAgain);
+  const back = button('← Arcade', 'arcade-back-to-arcade', options.onBack);
+  actions.append(playAgain, back);
+  section.append(actions);
+  root.replaceChildren(section);
+
+  const updateSubmissionStatus = (status: SubmissionStatus): void => {
+    badge.className = `arcade-result-badge ${badgeClass(status)}`;
+    badge.textContent = badgeText(status);
+    message.textContent = status.kind === 'verified' && status.placement
+      ? `Rank #${status.placement.placement} of ${status.placement.totalEntries}`
+      : status.kind === 'rejected'
+        ? 'This run could not be verified.'
+        : status.kind === 'submission-failed'
+          ? 'Submission failed — result saved locally.'
+          : '';
+    detail.textContent = status.kind === 'rejected'
+      ? status.reason
+      : status.kind === 'submission-failed'
+        ? status.message
+        : '';
+    if (status.kind === 'verified') renderMetrics(canonical, status.result, options.presentation);
+  };
+
+  updateSubmissionStatus(options.submissionStatus);
+  return { updateSubmissionStatus };
+}
+
+function renderMetrics(root: HTMLElement, result: CanonicalGameResult, presentation: ResultPresentation): void {
+  root.replaceChildren();
+  const primary = presentation.primaryMetric;
+  if (primary && hasMetric(result, primary.metric)) {
+    const score = element('div', 'arcade-result-score');
+    score.append(`${primary.label} `);
+    const value = element('strong');
+    value.textContent = formatMetric(result.metrics[primary.metric]!, primary);
+    score.append(value);
+    root.append(score);
+  }
+
+  const stats = element('dl', 'arcade-result-stats');
+  for (const metric of presentation.stats ?? []) {
+    if (!hasMetric(result, metric.metric)) continue;
+    const term = document.createElement('dt');
+    term.textContent = metric.label;
+    const value = document.createElement('dd');
+    value.textContent = formatMetric(result.metrics[metric.metric]!, metric);
+    stats.append(term, value);
+  }
+  if (stats.childElementCount > 0) root.append(stats);
+}
+
+function renderShare(root: HTMLElement, presentation: ResultPresentation): void {
+  if (!presentation.share) return;
+  const share = element('div', 'arcade-share');
+  const text = element('p', 'arcade-share-text');
+  text.textContent = presentation.share.text;
+  share.append(text);
+
+  const safeUrl = safeWebUrl(presentation.share.url);
+  if (safeUrl) {
+    const url = document.createElement('a');
+    url.className = 'arcade-share-url';
+    url.href = safeUrl;
+    url.textContent = safeUrl;
+    url.rel = 'noopener noreferrer';
+    share.append(url);
+  }
+
+  const status = element('span', 'arcade-share-status');
+  const copyText = [presentation.share.text, safeUrl].filter(Boolean).join(' ');
+  const copy = button('Copy', 'arcade-share-copy', () => {
+    void copyToClipboard(copyText).then((copied) => {
+      status.textContent = copied ? 'Copied!' : 'Copy unavailable';
+    });
+  });
+  share.append(copy, status);
+  root.append(share);
+}
+
+function renderLinks(root: HTMLElement, presentation: ResultPresentation): void {
+  const links = element('div', 'arcade-result-links arcade-hooks');
+  for (const item of presentation.links ?? []) {
+    const safeUrl = safeWebUrl(item.url);
+    if (!safeUrl) continue;
+    const link = document.createElement('a');
+    link.className = 'arcade-hook';
+    link.href = safeUrl;
+    link.textContent = item.label;
+    link.rel = 'noopener noreferrer';
+    links.append(link);
+  }
+  if (links.childElementCount > 0) root.append(links);
+}
+
+function badgeText(status: SubmissionStatus): string {
   switch (status.kind) {
-    case 'unranked':
-      badge.classList.add('arcade-unranked');
-      badge.textContent = 'Unranked';
-      detail.textContent = 'Local session — not submitted';
-      break;
-    case 'submitting':
-      badge.classList.add('arcade-submitting');
-      badge.textContent = 'Verifying';
-      message.hidden = false;
-      message.textContent = 'Replaying your run on the server…';
-      detail.textContent = 'Submission pending';
-      break;
-    case 'verified':
-      badge.classList.add('arcade-ranked');
-      badge.textContent = 'Verified';
-      message.hidden = false;
-      message.textContent = `Rank #${status.placement} of ${status.totalEntries}`;
-      detail.textContent = `Accepted — canonical score ${status.canonicalScore}`;
-      if (score) score.textContent = String(status.canonicalScore);
-      break;
-    case 'rejected':
-      badge.classList.add('arcade-rejected');
-      badge.textContent = 'Rejected';
-      message.hidden = false;
-      message.textContent = 'This run could not be verified.';
-      detail.textContent = status.reason;
-      break;
-    case 'submission-failed':
-      badge.classList.add('arcade-unranked');
-      badge.textContent = 'Unranked';
-      message.hidden = false;
-      message.textContent = 'Submission failed — result saved locally.';
-      detail.textContent = status.message;
-      break;
+    case 'verified': return 'Verified';
+    case 'submitting': return 'Verifying';
+    case 'rejected': return 'Rejected';
+    default: return 'Unranked';
   }
 }
 
-function showStatus(el: HTMLElement | null, msg: string): void {
-  if (!el) return;
-  el.textContent = msg;
-  el.hidden = false;
-  setTimeout(() => {
-    el.hidden = true;
-  }, 2000);
+function badgeClass(status: SubmissionStatus): string {
+  switch (status.kind) {
+    case 'verified': return 'arcade-ranked';
+    case 'submitting': return 'arcade-submitting';
+    case 'rejected': return 'arcade-rejected';
+    default: return 'arcade-unranked';
+  }
 }
 
-function pick<T>(arr: readonly T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]!;
+function formatMetric(value: number, presentation: MetricPresentation): string {
+  return `${presentation.prefix ?? ''}${value.toFixed(presentation.fractionDigits ?? 0)}${presentation.suffix ?? ''}`;
 }
 
-function formatStatKey(k: string): string {
-  const labels: Record<string, string> = {
-    damageDealt: 'Damage Dealt',
-    damageTaken: 'Damage Taken',
-    frames: 'Sim Frames',
-  };
-  return labels[k] ?? k;
+function hasMetric(result: CanonicalGameResult, metric: string): boolean {
+  return Number.isFinite(result.metrics[metric]);
 }
 
-function formatDuration(ms: number): string {
-  const s = Math.round(ms / 1000);
-  return `${s}s`;
+function safeWebUrl(value: string | undefined): string | null {
+  if (!value) return null;
+  try {
+    const url = new URL(value, window.location.href);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : null;
+  } catch {
+    return null;
+  }
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => {
-    switch (c) {
-      case '&': return '&amp;';
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '"': return '&quot;';
-      default: return '&#39;';
-    }
-  });
+async function copyToClipboard(value: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function element<K extends keyof HTMLElementTagNameMap>(tag: K, className = ''): HTMLElementTagNameMap[K] {
+  const result = document.createElement(tag);
+  result.className = className;
+  return result;
+}
+
+function button(label: string, className: string, onClick: () => void): HTMLButtonElement {
+  const result = element('button', className);
+  result.type = 'button';
+  result.textContent = label;
+  result.addEventListener('click', onClick);
+  return result;
 }

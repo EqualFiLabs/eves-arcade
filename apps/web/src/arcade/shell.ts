@@ -1,11 +1,10 @@
 import type {
-  ArcadeGameContext,
+  AnalyticsHook,
   ArcadeGameHandle,
   ArcadeGameManifest,
-  GameResult,
-  GameSession,
-  AnalyticsHook,
   ArcadeSettings,
+  GameCompletion,
+  GameSession,
 } from './types';
 import { REGISTRY } from './registry';
 import { consoleAnalytics } from './analytics';
@@ -13,27 +12,15 @@ import { loadSettings, saveSettings } from './settings';
 import { orientationSatisfied, onOrientationChange } from './orientation';
 import { renderResultScreen } from './result-screen';
 import { fetchSession } from './services/sessions';
-import { submitResult, storeLocalBest, getLocalBest } from './services/results';
+import { getLocalBest, storeLocalBest, submitResult } from './services/results';
 
-/**
- * ArcadeShell — the DOM application chrome (Req 1, 4, 7).
- *
- * Owns the selection surface, launches games into a mount element via the
- * `ArcadeGameModule` contract, tears them down on exit or KO, shows the DOM
- * result screen, and survives game teardown (it is the only thing that does).
- * Pure DOM/TypeScript — no Phaser.
- *
- * Flow: select → (dynamic import) → `module.launch(ctx)` → play → KO →
- * `ctx.onResult` → `teardownGame()` → result screen → Play Again / Back.
- * A module load failure shows a readable error and returns to selection (Req 1.6).
- */
 export class ArcadeShell {
   private settings: ArcadeSettings;
   private handle: ArcadeGameHandle | null = null;
-  private activeManifest: ArcadeGameManifest | null = null;
-  private unsubscribeOrientation: (() => void) | null = null;
-  private orientationTimer: ReturnType<typeof setInterval> | null = null;
-  private resultViewEpoch = 0;
+  private active: ArcadeGameManifest | null = null;
+  private removeOrientationListener: (() => void) | null = null;
+  private abortController: AbortController | null = null;
+  private epoch = 0;
 
   constructor(
     private readonly root: HTMLElement,
@@ -42,253 +29,200 @@ export class ArcadeShell {
     this.settings = loadSettings();
   }
 
-  /** Renders the selection surface. Call once on boot. */
   start(): void {
-    this.renderSelection();
+    this.showSelection();
   }
 
-  // ── Selection ──────────────────────────────────────────────────────────────
+  exit(): void {
+    this.teardown();
+    this.active = null;
+    this.showSelection();
+  }
 
-  private renderSelection(): void {
+  private showSelection(): void {
     this.clear();
     this.root.innerHTML = `
-      <section class="arcade-select" aria-label="arcade game selection">
+      <section class="arcade-select">
         <h1 class="arcade-title">Meme Arcade</h1>
         <p class="arcade-sub">Pick a fight. Or a flight.</p>
-        <ul class="arcade-list" role="list"></ul>
-        <p class="arcade-muted-hint"></p>
-      </section>
-    `;
-
-    const list = this.root.querySelector<HTMLElement>('.arcade-list')!;
+        <ul class="arcade-list"></ul>
+      </section>`;
+    const list = this.root.querySelector('ul')!;
     for (const manifest of REGISTRY) {
-      const li = document.createElement('li');
-      const btn = document.createElement('button');
-      btn.className = 'arcade-game';
-      btn.type = 'button';
-      btn.innerHTML = `<span class="arcade-game-title">${escapeHtml(manifest.title)}</span>
+      const button = document.createElement('button');
+      button.className = 'arcade-game';
+      button.innerHTML = `
+        <span class="arcade-game-title">${escapeHtml(manifest.title)}</span>
         <span class="arcade-game-tag">${escapeHtml(manifest.tagline ?? '')}</span>`;
-      btn.addEventListener('click', () => void this.launch(manifest));
-      li.appendChild(btn);
-      list.appendChild(li);
+      button.addEventListener('click', () => void this.launch(manifest));
+      const item = document.createElement('li');
+      item.append(button);
+      list.append(item);
     }
-
-    this.root.querySelector<HTMLElement>('.arcade-muted-hint')!.textContent = this.settings.muted
-      ? 'audio: muted — press M in-game to unmute'
-      : '';
   }
 
-  // ── Launch / play / exit / result ──────────────────────────────────────────
-
   private async launch(manifest: ArcadeGameManifest): Promise<void> {
-    this.analytics.track('game_launch_start', { gameId: manifest.id });
-    this.renderLaunching(manifest);
+    this.active = manifest;
+    this.root.innerHTML = `<section class="arcade-loading">Loading ${escapeHtml(manifest.title)}…</section>`;
+
     let module;
     try {
       module = await manifest.load();
-    } catch (err) {
-      this.renderError(manifest, err);
+    } catch (error) {
+      this.showError(manifest, error);
       return;
     }
-    if (!this.activeManifest) return; // user hit "back" during load
 
-    // Mount element the game creates its canvas inside; a small chrome bar holds
-    // the exit action so the player can always return to the arcade.
-    this.clear();
     this.root.innerHTML = `
       <div class="arcade-game-shell">
         <header class="arcade-chrome">
-          <button class="arcade-back" type="button">← Arcade</button>
-          <span class="arcade-now-playing"></span>
+          <button class="arcade-back">← Arcade</button>
+          <span>${escapeHtml(manifest.title)}</span>
         </header>
         <div class="arcade-rotate" hidden>↻ Rotate your device to play</div>
-        <div class="arcade-mount" id="arcade-mount"></div>
-      </div>
-    `;
+        <div id="arcade-mount" class="arcade-mount"></div>
+      </div>`;
+    this.root.querySelector<HTMLButtonElement>('.arcade-back')!
+      .addEventListener('click', () => this.exit());
 
-    this.root.querySelector<HTMLButtonElement>('.arcade-back')!.addEventListener('click', () => this.exit());
-    this.root.querySelector<HTMLElement>('.arcade-now-playing')!.textContent = manifest.title;
-
-    const mount = this.root.querySelector<HTMLElement>('#arcade-mount')!;
     let session: GameSession;
+    if (manifest.contract.verification.kind === 'none') {
+      session = {
+        seed: randomSeed(),
+        startedAt: Date.now(),
+        ranking: { kind: 'unranked', reason: 'unsupported' },
+      };
+    } else {
+      try {
+        session = await fetchSession(manifest.contract.game, __BUILD_VERSION__);
+      } catch (error) {
+        this.showError(manifest, error);
+        return;
+      }
+    }
+
+    this.abortController = new AbortController();
     try {
-      session = await fetchSession(manifest.id, manifest.version, __BUILD_VERSION__);
-    } catch (err) {
-      this.renderError(manifest, err);
+      this.handle = module.launch({
+        mount: this.root.querySelector('#arcade-mount')!,
+        session,
+        settings: this.settings,
+        signal: this.abortController.signal,
+        complete: (completion) => this.complete(manifest, completion, session),
+        updateSettings: (patch) => {
+          this.settings = saveSettings(patch);
+        },
+        analytics: this.analytics,
+      });
+      await this.handle.ready;
+    } catch (error) {
+      this.showError(manifest, error);
       return;
     }
-    if (!this.activeManifest || this.activeManifest.id !== manifest.id) return;
-    const ctx: ArcadeGameContext = {
-      parent: mount,
-      session,
-      settings: this.settings,
-      onScore: (score) => this.analytics.track('game_score_tick', { gameId: manifest.id, score }),
-      onResult: (result, packedTrace) => this.onGameResult(manifest, result, packedTrace, session),
-      updateSettings: (patch) => {
-        this.settings = saveSettings(patch);
-      },
-      analytics: this.analytics,
-    };
 
-    this.handle = module.launch(ctx);
-    this.updateRotatePrompt();
-    // Instant response in real browsers, plus a short polling fallback that
-    // catches headless/mobile environments where the orientation/resize events
-    // don't dispatch reliably.
-    this.unsubscribeOrientation = onOrientationChange(() => this.updateRotatePrompt());
-    this.orientationTimer = setInterval(() => this.updateRotatePrompt(), 250);
-    this.analytics.track('game_launch_ok', { gameId: manifest.id, seed: session.seed, ranked: session.ranked });
+    this.removeOrientationListener = onOrientationChange(() => this.applyOrientation());
+    this.applyOrientation();
   }
 
-  /** Tears down the launched game and returns to selection. */
-  exit(): void {
-    if (!this.activeManifest) return;
-    this.teardownGame();
-    this.activeManifest = null;
-    this.renderSelection();
-  }
-
-  /** Called when a game reports its terminal result via `ctx.onResult`. */
-  private onGameResult(
+  private complete(
     manifest: ArcadeGameManifest,
-    result: GameResult,
-    packedTrace: Uint8Array,
+    completion: GameCompletion,
     session: GameSession,
   ): void {
-    // Ignore if the player already exited or a different game is now active.
-    if (!this.activeManifest || this.activeManifest.id !== manifest.id) return;
-    this.teardownGame();
-    this.activeManifest = null;
-    this.analytics.track('game_result', {
-      gameId: manifest.id,
-      outcome: result.outcome,
-      score: result.score,
-      durationMs: result.durationMs,
-      ranked: session.ranked,
-    });
+    if (this.active !== manifest) return;
+    this.teardown();
+    this.active = null;
 
-    const epoch = ++this.resultViewEpoch;
-    if (!session.ranked || !session.ticket) {
-      storeLocalBest(manifest.id, result.score);
+    const localBest = manifest.localBest;
+    const metricValue = localBest ? completion.result.metrics[localBest.metric] : undefined;
+    if (localBest && metricValue !== undefined) {
+      storeLocalBest(manifest.contract.game.id, localBest.metric, metricValue, localBest.order);
     }
 
+    const token = ++this.epoch;
     const view = renderResultScreen(this.root, {
-      result,
-      manifest,
-      submissionStatus: session.ranked && session.ticket
+      result: completion.result,
+      presentation: completion.presentation,
+      submissionStatus: session.ranking.kind === 'ticketed'
         ? { kind: 'submitting' }
         : { kind: 'unranked' },
-      localBest: getLocalBest(manifest.id),
-      onPlayAgain: () => {
-        this.resultViewEpoch++;
-        void this.launch(manifest);
-      },
-      onBack: () => {
-        this.resultViewEpoch++;
-        this.renderSelection();
-      },
+      localBest: localBest
+        ? getLocalBest(manifest.contract.game.id, localBest.metric)
+        : 0,
+      onPlayAgain: () => void this.launch(manifest),
+      onBack: () => this.showSelection(),
     });
 
-    if (session.ranked && session.ticket) {
-      void submitResult(result, packedTrace, session.ticket).then((res) => {
-        if (epoch !== this.resultViewEpoch) return;
-        if (res?.accepted) {
-          this.analytics.track('result_accepted', {
-            gameId: manifest.id,
-            score: res.canonicalScore,
-            placement: res.placement,
-          });
-          view.updateSubmissionStatus({
-            kind: 'verified',
-            canonicalScore: res.canonicalScore,
-            placement: res.placement,
-            totalEntries: res.totalEntries,
-          });
-        } else if (res && !res.accepted) {
-          this.analytics.track('result_rejected', { gameId: manifest.id, reason: res.reason });
-          view.updateSubmissionStatus({ kind: 'rejected', reason: res.reason });
-        } else {
-          storeLocalBest(manifest.id, result.score);
-          view.updateSubmissionStatus({
-            kind: 'submission-failed',
-            message: 'The verification service could not be reached.',
-          });
-        }
-      });
-    }
+    if (session.ranking.kind !== 'ticketed') return;
+    void submitResult(
+      completion,
+      manifest.contract.game,
+      __BUILD_VERSION__,
+      session.ranking.ticket,
+    ).then((response) => {
+      if (token !== this.epoch) return;
+      if (response?.accepted) {
+        view.updateSubmissionStatus({
+          kind: 'verified',
+          result: response.canonicalResult,
+          placement: response.placements[0],
+        });
+      } else if (response) {
+        view.updateSubmissionStatus({ kind: 'rejected', reason: response.reason });
+      } else {
+        view.updateSubmissionStatus({ kind: 'submission-failed', message: 'Network unavailable' });
+      }
+    });
   }
 
-  /** Tears down the Phaser instance + orientation watchers. Does NOT clear activeManifest. */
-  private teardownGame(): void {
-    this.unsubscribeOrientation?.();
-    this.unsubscribeOrientation = null;
-    if (this.orientationTimer) {
-      clearInterval(this.orientationTimer);
-      this.orientationTimer = null;
-    }
-    try {
-      this.handle?.destroy();
-    } catch (err) {
-      console.error('arcade: game destroy threw', err);
-    }
+  private applyOrientation(): void {
+    if (!this.active || !this.handle) return;
+    const satisfied = orientationSatisfied(this.active);
+    const prompt = this.root.querySelector<HTMLElement>('.arcade-rotate');
+    if (prompt) prompt.hidden = satisfied;
+    if (satisfied) this.handle.resume?.('orientation');
+    else this.handle.suspend?.('orientation');
+  }
+
+  private teardown(): void {
+    this.removeOrientationListener?.();
+    this.removeOrientationListener = null;
+    this.abortController?.abort();
+    this.abortController = null;
+    this.handle?.destroy();
     this.handle = null;
   }
 
-  // ── Orientation prompt ────────────────────────────────────────────────────
-
-  private updateRotatePrompt(): void {
-    const prompt = this.root.querySelector<HTMLElement>('.arcade-rotate');
-    if (!prompt || !this.activeManifest || !this.handle) return;
-    const ok = orientationSatisfied(this.activeManifest);
-    prompt.hidden = ok;
-    // Pause/resume only when the game advertises support (Req 7.3).
-    if (ok) this.handle.resume?.();
-    else this.handle.pause?.();
-  }
-
-  // ── Render helpers ────────────────────────────────────────────────────────
-
-  private renderLaunching(manifest: ArcadeGameManifest): void {
-    this.activeManifest = manifest;
-    this.clear();
-    this.root.innerHTML = `<section class="arcade-loading">Loading ${escapeHtml(manifest.title)}…</section>`;
-  }
-
-  private renderError(manifest: ArcadeGameManifest, err: unknown): void {
-    this.activeManifest = null;
-    const msg = err instanceof Error ? err.message : String(err);
-    this.analytics.track('game_launch_error', { gameId: manifest.id, error: msg });
-    this.clear();
+  private showError(manifest: ArcadeGameManifest, error: unknown): void {
+    this.teardown();
+    this.active = null;
+    const message = error instanceof Error ? error.message : String(error);
     this.root.innerHTML = `
       <section class="arcade-error">
         <h2>Couldn’t load ${escapeHtml(manifest.title)}</h2>
-        <pre>${escapeHtml(msg)}</pre>
-        <button class="arcade-back" type="button">← Back to arcade</button>
+        <pre>${escapeHtml(message)}</pre>
+        <button>← Back</button>
       </section>`;
-    this.root.querySelector<HTMLButtonElement>('.arcade-back')!.addEventListener('click', () => this.renderSelection());
+    this.root.querySelector('button')!.addEventListener('click', () => this.showSelection());
   }
 
   private clear(): void {
-    // If a game is mid-launch but never produced a handle (load error during
-    // launch), there is nothing to destroy; just clear the DOM.
-    this.root.innerHTML = '';
+    this.epoch += 1;
+    this.teardown();
+    this.root.replaceChildren();
   }
 }
 
-/** Suitable 31-bit positive integer seed for a deterministic sim. */
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => {
-    switch (c) {
-      case '&':
-        return '&amp;';
-      case '<':
-        return '&lt;';
-      case '>':
-        return '&gt;';
-      case '"':
-        return '&quot;';
-      default:
-        return '&#39;';
-    }
-  });
+function randomSeed(): number {
+  return Math.floor(Math.random() * 0x7fffffff);
+}
+
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[character]!);
 }

@@ -17,6 +17,7 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     const { width, height } = this.scale;
+    (this.game.registry.get('arcadeReady') as (() => void) | undefined)?.();
     this.cameras.main.setBackgroundColor('#0a0a0f');
     this.muted = !!this.game.registry.get('muted');
 

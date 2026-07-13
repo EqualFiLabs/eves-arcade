@@ -1,92 +1,97 @@
-/**
- * Wire-protocol types shared between the web client and the API server (Req 9.1,
- * 14.1). No Phaser, no DOM, no Node-specific APIs — pure data shapes that both
- * sides compile against.
- */
+/** Pure, versioned arcade wire contracts shared by web and API. */
+export interface GameIdentity {
+  id: string;
+  version: string;
+}
 
-/** HMAC-signed server grant authorizing one ranked session (Req 9.2). */
+export interface SchemaIdentity {
+  id: string;
+  version: number;
+}
+
+export type VerificationDescriptor =
+  | { kind: 'input-trace'; schema: SchemaIdentity; encodingVersion: number }
+  | { kind: 'none' };
+
+export interface GameContractDescriptor {
+  game: GameIdentity;
+  resultSchema: SchemaIdentity;
+  verification: VerificationDescriptor;
+}
+
+export interface CanonicalGameResult {
+  schema: SchemaIdentity;
+  outcome: string;
+  metrics: Readonly<Record<string, number>>;
+  durationMs: number;
+  replayHash?: string;
+}
+
 export interface SessionTicket {
   sessionId: string;
-  gameId: string;
-  gameVersion: string;
-  /** Exact deployed client build this ticket authorizes. */
+  game: GameIdentity;
   buildVersion: string;
   seed: number;
   issuedAt: number;
   expiresAt: number;
-  /** HMAC-SHA256 over the other fields, hex-encoded. */
   sig: string;
 }
 
-/** Client request for a ticket bound to an exact game and deployed build. */
 export interface SessionRequest {
-  gameId: string;
-  gameVersion: string;
+  game: GameIdentity;
   buildVersion: string;
 }
 
-/**
- * The outcome of a completed game session. Built by the game, verified by the
- * server. The hashes make the result structurally trustworthy (Req 8.3, 8.5).
- */
-export interface GameResult {
-  gameId: string;
-  gameVersion: string;
-  /** Build SHA via Vite `define`; identifies the exact deployed binary (Req 8.6). */
+export interface SessionResponse {
+  ticket: SessionTicket;
+}
+
+export interface GameResultClaim {
+  game: GameIdentity;
   buildVersion: string;
-  /** Present when the session had a ticket (ranked); empty for unranked. */
   sessionId: string;
   seed: number;
-  outcome: 'win' | 'loss' | 'complete' | 'abort';
-  score: number;
-  /** Game-defined stats (e.g. `{ damageDealt, damageTaken, frames }`). */
-  stats: Record<string, number>;
-  durationMs: number;
-  /** SHA-256 of the versioned bit-packed input trace (Req 8.3). */
-  inputTraceHash: string;
-  /** SHA-256 of the serialized terminal sim state (Req 8.5). */
-  replayHash: string;
+  result: CanonicalGameResult;
 }
 
-/** Client → server submission of a ranked result + packed trace (Req 10.1). */
+export type SerializedVerificationEvidence =
+  | {
+      kind: 'input-trace';
+      schema: SchemaIdentity;
+      encodingVersion: number;
+      data: string;
+      hash: string;
+    }
+  | { kind: 'none' };
+
 export interface ScoreSubmission {
   ticket: SessionTicket;
-  /** Bit-packed input trace, base64-encoded for transport. */
-  inputTrace: string;
-  traceEncodingVersion: number;
-  /** The client's claimed result; the server recomputes independently. */
-  claimedResult: GameResult;
-  /** Untrusted player label (no auth in V1). */
+  evidence: SerializedVerificationEvidence;
+  claimedResult: GameResultClaim;
   playerHandle?: string;
   clientTimestamp: number;
 }
 
-/** A leaderboard category a game declares in its manifest. */
 export interface LeaderboardCategory {
   id: string;
-  gameId: string;
   label: string;
   metric: string;
   order: 'desc' | 'asc';
   season?: string;
 }
 
-// ── API responses ─────────────────────────────────────────────────────────────
-
-/** `POST /sessions` response. */
-export interface SessionResponse {
-  ticket: SessionTicket;
-}
-
-/** `POST /results` acceptance response. */
-export interface SubmissionAccepted {
-  accepted: true;
-  canonicalScore: number;
+export interface LeaderboardPlacement {
+  categoryId: string;
   placement: number;
   totalEntries: number;
 }
 
-/** `POST /results` rejection response. */
+export interface SubmissionAccepted {
+  accepted: true;
+  canonicalResult: CanonicalGameResult;
+  placements: LeaderboardPlacement[];
+}
+
 export interface SubmissionRejected {
   accepted: false;
   reason: string;
@@ -95,17 +100,14 @@ export interface SubmissionRejected {
 
 export type SubmissionResponse = SubmissionAccepted | SubmissionRejected;
 
-/** A single row in a leaderboard response. */
 export interface LeaderboardEntry {
   sessionId: string;
-  score: number;
-  outcome: string;
+  game: GameIdentity;
+  result: CanonicalGameResult;
   playerHandle: string;
-  gameVersion: string;
   submittedAt: number;
 }
 
-/** `GET /leaderboards/:categoryId` response. */
 export interface LeaderboardResponse {
   categoryId: string;
   entries: LeaderboardEntry[];

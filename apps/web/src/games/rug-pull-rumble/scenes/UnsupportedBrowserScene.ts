@@ -16,6 +16,8 @@ export class UnsupportedBrowserScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor('#0a0a0f');
 
     const reasons = (data?.reasons?.length ?? 0) > 0 ? data.reasons : ['This browser is not supported.'];
+    const rejectReady = this.game.registry.get('arcadeReadyError') as ((reason: Error) => void) | undefined;
+    rejectReady?.(new Error(reasons.join('; ')));
 
     const lines = [
       gameCopy.unsupportedBrowser || 'Unsupported browser',

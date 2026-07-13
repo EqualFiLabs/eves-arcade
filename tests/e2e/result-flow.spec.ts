@@ -7,7 +7,7 @@ import { launchRprViaShell, runningSceneKey } from './helpers';
  *
  * The result screen appears ~2s after KO (KO_RESULT_DELAY_MS in FightScene), so
  * the DOM assertions poll generously. The shell tears down the Phaser instance
- * when onResult fires; Play Again re-launches a fresh one.
+ * when completion fires; Play Again re-launches a fresh one.
  */
 
 test('KO → DOM result screen with score/share/hooks → Play Again relaunches', async ({ page }) => {
@@ -45,7 +45,7 @@ test('KO → DOM result screen with score/share/hooks → Play Again relaunches'
   // Outcome label (win/loss) and score are present.
   await expect(page.locator('.arcade-result-outcome')).toBeVisible();
   const outcomeClass = await page.locator('.arcade-result-outcome').getAttribute('class');
-  expect(outcomeClass).toMatch(/arcade-win|arcade-loss/);
+  expect(outcomeClass).toMatch(/arcade-positive|arcade-negative/);
 
   await expect(page.locator('.arcade-result-score strong')).toBeVisible();
   const scoreText = await page.locator('.arcade-result-score strong').textContent();
