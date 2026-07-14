@@ -14,12 +14,17 @@
     "preview": "pnpm --filter @rpr/web preview",
     "typecheck": "pnpm -r typecheck",
     "lint": "eslint .",
-    "test": "pnpm test:sim",
-    "test:sim": "vitest run",
+    "test": "pnpm test:unit",
+    "test:unit": "vitest run",
+    "test:sim": "vitest run tests/sim",
+    "test:architecture": "vitest run tests/architecture",
     "test:api:integration": "bash scripts/test-postgres.sh",
-    "test:sim:watch": "vitest",
+    "test:unit:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:install": "playwright install --with-deps chromium"
+    "test:e2e:install": "playwright install --with-deps chromium",
+    "check:bundle": "bash scripts/check-production-bundle.sh",
+    "check:fast": "pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build:all && pnpm check:bundle",
+    "check:all": "pnpm check:fast && pnpm test:api:integration && pnpm test:e2e"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",

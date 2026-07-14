@@ -13,6 +13,11 @@ import { orientationSatisfied, onOrientationChange } from './orientation';
 import { renderResultScreen, type ResultScreenHandle } from './result-screen';
 import { fetchSession } from './services/sessions';
 import { getLocalBest, storeLocalBest, submitResult } from './services/results';
+import {
+  ArcadeContractError,
+  defineArcadeRegistry,
+  validateCompletion,
+} from './contracts';
 
 const SESSION_TIMEOUT_MS = 8_000;
 const READY_TIMEOUT_MS = 30_000;
@@ -114,7 +119,7 @@ export class ArcadeShell {
   });
 
   constructor(private readonly root: HTMLElement, options: ArcadeShellOptions = {}) {
-    this.registry = options.registry ?? REGISTRY;
+    this.registry = options.registry ? defineArcadeRegistry(options.registry) : REGISTRY;
     this.analytics = options.analytics ?? consoleAnalytics;
     this.acquireSession = options.acquireSession ?? fetchSession;
     this.submit = options.submitResult ?? submitResult;
@@ -285,7 +290,7 @@ export class ArcadeShell {
       this.applyAllSuspensionReasons(operation);
     } catch (error) {
       if (!this.owns(operation) || isAbortError(error)) return;
-      if (error instanceof ContractError) stage = 'contract';
+      if (error instanceof ContractError || error instanceof ArcadeContractError) stage = 'contract';
       await this.failLaunch(operation, stage, error);
     }
   }
@@ -331,6 +336,17 @@ export class ArcadeShell {
       queueMicrotask(() => {
         if (this.owns(operation) && operation.earlyCompletion && !operation.ending) {
           void this.failLaunch(operation, 'contract', new ContractError('Game completed before ready'));
+        }
+      });
+      return;
+    }
+    try {
+      validateCompletion(operation.manifest, completion);
+    } catch (error) {
+      this.diagnose('arcade_completion_ignored', operation, { reason: 'invalid-contract' });
+      queueMicrotask(() => {
+        if (this.owns(operation) && !operation.ending) {
+          void this.failLaunch(operation, 'contract', error);
         }
       });
       return;

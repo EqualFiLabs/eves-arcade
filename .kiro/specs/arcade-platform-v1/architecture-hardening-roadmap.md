@@ -60,7 +60,7 @@ shims should be temporary and should have an explicit removal phase.
 | 5 | Make shared web surfaces game-neutral | COMPLETE | Phase 3 |
 | 6 | Introduce explicit canonical input and trace schemas | COMPLETE | Phases 2–3 |
 | 7 | Generalize and harden the verification backend | COMPLETE | Phases 2, 3, 6 |
-| 8 | Enforce architecture and prove multi-format support | NOT STARTED | Phases 4–7 |
+| 8 | Enforce architecture and prove multi-format support | COMPLETE | Phases 4–7 |
 | 9 | Adapt Crypto Crash Launcher to the platform | NOT STARTED | Phase 8 |
 | 10 | Build and ship Crypto Crash Launcher V1 | NOT STARTED | Phase 9 |
 
@@ -932,15 +932,51 @@ minimal and avoid turning them into a shared engine.
 
 ## Work Log
 
-Status: `NOT STARTED`
+Status: `COMPLETE`
 
 Planning document:
 
+- `phases/phase-8-architecture-and-multi-format.md`
+
 Implementation notes:
+
+- A TypeScript-AST architecture suite enforces package, application, shell,
+  game, browser-global, declared-dependency, and RPR-specific branching rules.
+- Registry construction and completion now validate manifest, ranking,
+  suspension, replay, schema, evidence, hash, and result-presentation contracts.
+- The API accepts a global set of known build versions while per-game support
+  remains verifier-registry driven; shared replay copy is game-neutral.
+- Three DEV-only real Phaser games cover ranked button input, ranked quantized
+  analog input with cosmetic Arcade Physics, portrait scaling, and unranked
+  completion. They use the production shell lifecycle and are excluded from
+  production output.
+- Direct API and real worker-thread parity tests cover both ranked fixture
+  formats. Playwright proves sequential manager/resource/listener/overlay
+  isolation, generic results, replay dispatch, and the unranked service path.
+- Validation scripts now distinguish unit, simulation, architecture,
+  PostgreSQL, browser, build, and production bundle checks. GitHub Actions runs
+  fast, PostgreSQL, and browser jobs separately.
 
 Verification evidence:
 
+- `pnpm typecheck`: passed all seven workspace projects.
+- `pnpm lint`: passed.
+- `pnpm test:unit`: 32 files and 288 tests passed; five Docker-gated tests
+  skipped in the non-Docker run.
+- `pnpm test:sim`: 12 files and 100 tests passed.
+- `pnpm test:architecture`: nine tests passed, including negative boundary and
+  RPR-branching fixtures.
+- `pnpm test:api:integration`: all five PostgreSQL tests passed.
+- `pnpm build:all` and `pnpm check:bundle`: passed; the production web output
+  contains no fixture route, identity, or module marker.
+- `pnpm test:e2e`: all 22 desktop and mobile browser tests passed.
+- `git diff --check`: passed.
+
 Deferred items:
+
+- No production second game is introduced here. Crypto Crash Launcher contract
+  adaptation, authoritative simulation design, and product implementation
+  remain Phases 9 and 10.
 
 ---
 

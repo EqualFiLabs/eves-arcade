@@ -20,9 +20,7 @@ function boot(): void {
   const root = document.getElementById('app');
   if (!root) throw new Error('arcade: missing #app root element');
 
-  const isDev =
-    typeof import.meta !== 'undefined' &&
-    Boolean((import.meta as { env?: { DEV?: boolean } }).env?.DEV);
+  const isDev = import.meta.env.DEV;
 
   let active: ActiveSurface | null = null;
   let routeId = 0;
@@ -33,13 +31,27 @@ function boot(): void {
     if (previous) await previous.destroy();
     if (id !== routeId) return;
 
+    const fixtureMode = isDev
+      && new URLSearchParams(location.search).get('arcadeFixtures') === '1';
+
     if (isDev && location.hash === '#replay') {
       const { showReplayViewer } = await import('./arcade/replay');
       if (id !== routeId) return;
+      const registry = fixtureMode
+        ? (await import('./dev-fixtures/registry')).FIXTURE_REGISTRY
+        : REGISTRY;
+      if (id !== routeId) return;
       active = showReplayViewer(root, {
-        registry: REGISTRY,
+        registry,
         onBack: () => { location.hash = ''; },
       });
+      return;
+    }
+
+    if (fixtureMode) {
+      const { createFixtureArcade } = await import('./dev-fixtures/shell');
+      if (id !== routeId) return;
+      active = createFixtureArcade(root);
       return;
     }
 

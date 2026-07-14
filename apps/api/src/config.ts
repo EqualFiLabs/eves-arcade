@@ -1,7 +1,6 @@
 import { execSync } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import { z } from 'zod';
-import { RPR_GAME_ID, RPR_GAME_VERSION } from '@rpr/rug-pull-rumble-core/identity';
 
 export interface ApiConfig {
   port: number;
@@ -17,7 +16,7 @@ export interface ApiConfig {
   workerMaxThreads: number;
   workerMaxQueue: number;
   verificationTimeoutMs: number;
-  supportedGameBuilds: Record<string, Record<string, string[]>>;
+  knownBuildVersions: readonly string[];
 }
 
 const integer = (fallback: number, min: number, max: number) => z.coerce.number()
@@ -75,9 +74,7 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): ApiCon
     workerMaxThreads: parsed.VERIFIER_MAX_THREADS,
     workerMaxQueue: parsed.VERIFIER_MAX_QUEUE,
     verificationTimeoutMs: parsed.VERIFICATION_TIMEOUT_MS,
-    supportedGameBuilds: {
-      [RPR_GAME_ID]: { [RPR_GAME_VERSION]: configuredBuilds },
-    },
+    knownBuildVersions: configuredBuilds,
   };
 }
 

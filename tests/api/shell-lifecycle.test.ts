@@ -187,18 +187,13 @@ describe('ArcadeShell lifecycle', () => {
     vi.useRealTimers();
   });
 
-  it('rejects a ranked manifest that cannot suspend its simulation', async () => {
+  it('rejects a ranked manifest that cannot suspend its simulation', () => {
     const fixture = gameFixture({ ranked: true });
     fixture.manifest.capabilities.suspension = false;
-    const shell = createShell(fixture.manifest);
-    shell.start();
-    click('.arcade-game');
-    await waitForState(shell, 'ERROR');
 
-    expect(shell.snapshot.error).toMatchObject({
-      stage: 'contract',
-      message: 'Ranked games must declare suspension support',
-    });
+    expect(() => createShell(fixture.manifest)).toThrow(
+      'Ranked games must support suspension',
+    );
     expect(fixture.load).not.toHaveBeenCalled();
   });
 
@@ -274,13 +269,13 @@ describe('ArcadeShell lifecycle', () => {
     await waitForState(shell, 'LAUNCHING');
     fixture.ready.resolve();
     await waitForState(shell, 'PLAYING');
-    fixture.context!.complete(completion());
+    fixture.context!.complete(completion(true));
     await waitForState(shell, 'RESULTS');
     await shell.exit();
 
     submitted.resolve({
       accepted: true,
-      canonicalResult: completion().result,
+      canonicalResult: completion(true).result,
       placements: [],
     });
     await nextTurn();
@@ -389,20 +384,39 @@ function manifestFor(
       suspension: true,
     },
     leaderboards: [],
+    ...(ranked ? {
+      replay: {
+        load: async () => ({
+          launch: () => ({
+            ready: Promise.resolve(),
+            progress: { frame: 0, totalFrames: 0, playing: false, speed: 1 as const },
+            play() {}, pause() {}, step() {}, setSpeed() {}, async destroy() {},
+          }),
+        }),
+      },
+    } : {}),
     load: module.load,
   };
 }
 
-function completion(): GameCompletion {
+function completion(ranked = false): GameCompletion {
   return {
     result: {
       schema: { id: 'fixture.result', version: 1 },
       outcome: 'complete',
       metrics: { score: 10 },
       durationMs: 100,
+      ...(ranked ? { replayHash: 'fixture-replay-hash' } : {}),
     },
     presentation: { headline: 'Complete', tone: 'neutral' },
-    evidence: { kind: 'none' },
+    evidence: ranked
+      ? {
+          kind: 'input-trace',
+          schema: { id: 'fixture.input', version: 1 },
+          encodingVersion: 2,
+          bytes: new Uint8Array([2, 0, 0, 0, 0]),
+        }
+      : { kind: 'none' },
   };
 }
 

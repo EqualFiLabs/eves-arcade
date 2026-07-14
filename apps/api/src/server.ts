@@ -113,8 +113,7 @@ export function createApp(deps: AppDeps): Hono {
     if (!descriptor) {
       return c.json({ error: `Unsupported game version: ${request.game.id}@${request.game.version}` }, 400);
     }
-    const supportedBuilds = config.supportedGameBuilds[request.game.id]?.[request.game.version];
-    if (!supportedBuilds?.includes(request.buildVersion)) {
+    if (!config.knownBuildVersions.includes(request.buildVersion)) {
       return c.json({ error: `Unsupported build: ${request.buildVersion}` }, 400);
     }
     const now = Date.now();
@@ -151,8 +150,7 @@ export function createApp(deps: AppDeps): Hono {
       await store.expireTicket(ticket.sessionId, Date.now());
       return reject(c, 'ticket_expired', 'Ticket expired', false, false);
     }
-    const builds = config.supportedGameBuilds[ticket.game.id]?.[ticket.game.version];
-    if (!builds?.includes(ticket.buildVersion)) {
+    if (!config.knownBuildVersions.includes(ticket.buildVersion)) {
       return reject(c, 'unsupported_build', 'Unsupported ticket build', false, false);
     }
     const identityError = resultIdentityError(ticket, claimedResult);

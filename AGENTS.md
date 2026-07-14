@@ -102,7 +102,9 @@ Before declaring a task from `tasks.md` complete:
 
 1. `pnpm typecheck` passes (strict).
 2. `pnpm lint` passes.
-3. `pnpm test:sim` passes if the task touched `packages/sim` or `packages/content`.
+3. `pnpm test:unit` passes for any code change; additionally run
+   `pnpm test:sim` when `packages/sim` changes and
+   `pnpm test:architecture` when dependency boundaries change.
 4. The relevant skill was actually consulted (don't write Phaser code from memory — verify against the skill).
 5. No Phaser import leaked into `packages/sim` or `packages/content`.
 

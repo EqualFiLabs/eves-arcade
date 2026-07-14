@@ -21,6 +21,12 @@ acquisition deliberately falls back to a fully playable unranked session.
 Server validation rejections do not fall back silently: the shell displays the
 configuration or request error.
 
+In development only, `http://localhost:5173/?arcadeFixtures=1` replaces the
+production registry with three small conformance games: ranked button input,
+ranked quantized analog input with cosmetic Arcade Physics, and unranked input.
+They exercise the real shell and Phaser lifecycle and are compile-time removed
+from the production bundle.
+
 ## Verification backend
 
 The API uses an in-memory store only when `DATABASE_URL` is absent in local
@@ -48,11 +54,17 @@ checks PostgreSQL, worker capacity, and retained verifier/category references.
 ```sh
 pnpm typecheck
 pnpm lint
+pnpm test:unit
 pnpm test:sim
+pnpm test:architecture
 pnpm test:api:integration
-pnpm build
+pnpm build:all
+pnpm check:bundle
 pnpm test:e2e
 ```
 
-The Playwright configuration starts both services and exercises ranked and
-offline/unranked browser flows.
+`pnpm check:fast` runs types, lint, all non-Docker Vitest suites, both builds,
+and the production fixture-exclusion check. `pnpm check:all` adds PostgreSQL and
+browser flows. GitHub Actions runs those concerns as separate fast, PostgreSQL,
+and browser jobs. Playwright starts both services and exercises ranked,
+offline/unranked, multi-format lifecycle, replay dispatch, and Phaser isolation.

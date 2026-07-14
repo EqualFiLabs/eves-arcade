@@ -31,6 +31,8 @@ export interface WorkerVerificationOptions {
   maxThreads?: number;
   maxQueue?: number;
   timeoutMs?: number;
+  /** Test/deployment extension point; production uses the registered worker task. */
+  workerFile?: URL;
 }
 
 export class WorkerVerificationExecutor implements VerificationExecutor {
@@ -40,12 +42,15 @@ export class WorkerVerificationExecutor implements VerificationExecutor {
   constructor(options: WorkerVerificationOptions = {}) {
     const maxThreads = options.maxThreads ?? Math.max(1, availableParallelism() - 1);
     this.timeoutMs = options.timeoutMs ?? 2_000;
-    const workerFile = import.meta.url.endsWith('.ts') ? './worker-task.ts' : './verify/worker-task.js';
+    const workerFile = options.workerFile?.href ?? new URL(
+      import.meta.url.endsWith('.ts') ? './worker-task.ts' : './verify/worker-task.js',
+      import.meta.url,
+    ).href;
     const tsxLoader = import.meta.url.endsWith('.ts')
       ? createRequire(import.meta.url).resolve('tsx')
       : null;
     this.pool = new Piscina({
-      filename: new URL(workerFile, import.meta.url).href,
+      filename: workerFile,
       minThreads: options.minThreads ?? 1,
       maxThreads,
       maxQueue: options.maxQueue ?? maxThreads * 2,
