@@ -31,7 +31,10 @@ test('close camera keeps a real double jump and both fighters inside the viewpor
   await launchRprViaShell(page);
   await page.keyboard.down('ArrowRight');
   const state = () => page.evaluate(() => (window as unknown as { __engine: { state: { frame: number; player: { position: { x: number; y: number }; grounded: boolean; airJumpsUsed: number }; cpu: { position: { x: number } } } } }).__engine.state);
-  await expect.poll(async () => { const s = await state(); return Math.abs(s.cpu.position.x - s.player.position.x); }).toBeLessThan(210);
+  // Shared CI software rendering advances fewer simulation frames per second.
+  // Keep the close-spacing requirement, allowing the same setup time as the
+  // existing real movement checks rather than assuming five wall-clock seconds.
+  await expect.poll(async () => { const s = await state(); return Math.abs(s.cpu.position.x - s.player.position.x); }, { timeout: 15_000, intervals: [20] }).toBeLessThan(210);
   await page.keyboard.up('ArrowRight');
   await page.evaluate(() => {
     const w = window as unknown as { __game: GameView; __engine: { state: { player: { airJumpsUsed: number } } }; jumpView: { samples: number; margin: number } };
