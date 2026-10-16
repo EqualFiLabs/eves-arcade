@@ -5,6 +5,8 @@ clean dark plates, pale contours and colored seams of concept C. It is a
 playable visual prototype with one shared articulated body. It is ready for
 feedback on silhouette, identity recognition and motion before final assets.
 
+![Operators 42 and 5555 during a real browser fight](art/operator-fighter-prototype.png)
+
 ## Identity mapping
 
 | Catalog trait | Fighter presentation |
@@ -72,3 +74,24 @@ Rumble, and load both IDs. Suggested comparisons: 42/5555, 24/123, 520/16 and
 16/16. Use arrows to move, A/S for high strikes, Z/X for low strikes, C/V for
 special/super and Shift to guard, or touch controls
 in landscape. The existing result, rematch and replay flows are preserved.
+
+## Prototype validation
+
+The implementation and review fixes were validated at `a96b060`:
+
+- `pnpm check:fast`: strict types, lint, 299 passing tests, architecture checks,
+  both production builds and exclusion of development fixtures. Nine database
+  tests are gated out of this command and run separately below.
+- `pnpm test:api:integration`: nine tests pass against real PostgreSQL,
+  including exact preservation and import of all 5,555 Operators. This ran on
+  the initial prototype candidate; review fixes change presentation only.
+- `CI=1 pnpm test:e2e --workers=1 --retries=0`: all 33 browser tests pass,
+  including real KO, double jump framing, hitstop, six reference identities,
+  mirror matches, retries/cancellation, teardown, replay pause and touch input.
+  The browser harness explicitly removes RPC configuration.
+- Independent local agent review identified terminal hitstop and airborne
+  framing bugs. Both were fixed and re-reviewed with no remaining confirmed
+  findings. This is local review, not third-party assurance.
+
+The screenshot above is an unmodified capture from the passing browser suite.
+These results validate the local prototype; they are not a production deployment.
