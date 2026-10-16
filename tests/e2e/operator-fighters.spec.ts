@@ -2,9 +2,9 @@ import { expect, test, type Page } from '@playwright/test';
 import { chooseRprOperators, launchRprViaShell, runningSceneKey } from './helpers';
 import { writeFile } from 'node:fs/promises';
 
-interface ImageView { name: string; x: number; y: number; rotation: number; cameraFilter: number; frame: { cutX: number; cutY: number; cutWidth: number; cutHeight: number }; texture: { key: string; getSourceImage(): HTMLCanvasElement } }
+interface ImageView { name: string; x: number; y: number; rotation: number; cameraFilter: number; getBounds(): { top: number; bottom: number }; frame: { cutX: number; cutY: number; cutWidth: number; cutHeight: number }; texture: { key: string; getSourceImage(): HTMLCanvasElement } }
 interface ContainerView { name: string; scaleX: number; list: ImageView[]; cameraFilter: number }
-interface SceneView { children: { list: (ContainerView & ImageView)[] }; cameras: { cameras: { id: number }[] }; scene: { pause(): void; resume(): void } }
+interface SceneView { children: { list: (ContainerView & ImageView)[] }; cameras: { cameras: { id: number; worldView: { y: number; height: number } }[] }; scene: { pause(): void; resume(): void } }
 interface GameView { scene: { getScene(key: string): SceneView }; textures: { exists(key: string): boolean }; events: { on(name: string, callback: () => void): void } }
 
 async function rigs(page: Page) {
@@ -26,6 +26,42 @@ async function rigs(page: Page) {
     }; });
   });
 }
+
+test('close camera keeps a real double jump and both fighters inside the viewport', async ({ page }) => {
+  await launchRprViaShell(page);
+  await page.keyboard.down('ArrowRight');
+  const state = () => page.evaluate(() => (window as unknown as { __engine: { state: { frame: number; player: { position: { x: number; y: number }; grounded: boolean; airJumpsUsed: number }; cpu: { position: { x: number } } } } }).__engine.state);
+  await expect.poll(async () => { const s = await state(); return Math.abs(s.cpu.position.x - s.player.position.x); }).toBeLessThan(210);
+  await page.keyboard.up('ArrowRight');
+  await page.evaluate(() => {
+    const w = window as unknown as { __game: GameView; __engine: { state: { player: { airJumpsUsed: number } } }; jumpView: { samples: number; margin: number } };
+    w.jumpView = { samples: 0, margin: Infinity };
+    w.__game.events.on('poststep', () => {
+      if (w.__engine.state.player.airJumpsUsed === 0) return;
+      const s = w.__game.scene.getScene('FightScene');
+      const view = s.cameras.cameras[0]!.worldView;
+      for (const rig of s.children.list.filter(o => o.name.startsWith('operator-rig-'))) {
+        for (const name of ['head', 'frontBoot', 'rearBoot']) {
+          const b = rig.list.find(p => p.name === name)!.getBounds();
+          w.jumpView.margin = Math.min(w.jumpView.margin, b.top - view.y, view.y + view.height - b.bottom);
+        }
+      }
+      w.jumpView.samples++;
+    });
+  });
+  await page.keyboard.down('ArrowUp');
+  await expect.poll(async () => (await state()).player.grounded, { intervals: [20] }).toBe(false);
+  await page.keyboard.up('ArrowUp');
+  const takeoff = (await state()).frame;
+  await expect.poll(async () => (await state()).frame, { intervals: [20] }).toBeGreaterThan(takeoff + 10);
+  await page.keyboard.down('ArrowUp');
+  await expect.poll(async () => (await state()).player.airJumpsUsed).toBe(1);
+  await page.keyboard.up('ArrowUp');
+  await expect.poll(async () => (await state()).player.grounded, { timeout: 10_000 }).toBe(true);
+  const view = await page.evaluate(() => (window as unknown as { jumpView: { samples: number; margin: number } }).jumpView);
+  expect(view.samples).toBeGreaterThan(5);
+  expect(view.margin).toBeGreaterThanOrEqual(0);
+});
 
 test('keyboard strikes articulate and simulation hitstop freezes the joints', async ({ page }, info) => {
   await launchRprViaShell(page);

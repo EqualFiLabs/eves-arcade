@@ -55,10 +55,11 @@ export class FighterRenderer {
 
   sync(f: FighterState, frame = 0): void {
     if (this.destroyed) return;
-    const p = f.hitstopFramesRemaining > 0 && this.lastPose ? this.lastPose : sampleOperatorPose(f, frame);
+    const p = sampleOperatorPose(f, frame, this.lastPose);
     this.lastPose = p;
     const sign = f.facing === 'right' ? 1 : -1;
-    this.rig.setPosition(f.position.x + p.rootX * sign * this.scale, f.position.y + p.rootY * this.scale)
+    const baseY = f.hasLost || f.currentState === 'ko' ? this.floorY : f.position.y;
+    this.rig.setPosition(f.position.x + p.rootX * sign * this.scale, baseY + p.rootY * this.scale)
       .setScale(sign * this.scale, this.scale).setRotation(p.rotation * sign);
     const at = (name: string, j: Joint, rotation = 0, sx = 1, sy = 1): void => {
       this.parts[name]!.setPosition(j.x, j.y).setRotation(rotation).setScale(sx / 3, sy / 3);

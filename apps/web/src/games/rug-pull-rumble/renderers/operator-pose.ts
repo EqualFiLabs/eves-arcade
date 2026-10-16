@@ -15,9 +15,13 @@ const blend = (a: Joint, b: Joint, t: number): Joint => point(a.x + (b.x - a.x) 
 const smooth = (t: number): number => { const c = Math.max(0, Math.min(1, t)); return c * c * (3 - 2 * c); };
 
 /** Pure presentation sampler. Move timing comes from the existing combat kit. */
-export function sampleOperatorPose(f: Readonly<FighterState>, frame: number): OperatorPose {
+export function sampleOperatorPose(f: Readonly<FighterState>, frame: number, previous?: OperatorPose): OperatorPose {
+  const knockedOut = f.currentState === 'ko' || f.hasLost;
+  // Terminal rounds retain their final hitstop counter forever. The fallen
+  // pose must take priority; nonterminal impact freezes the prior joint pose.
+  if (!knockedOut && f.hitstopFramesRemaining > 0 && previous) return previous;
   const crouch = f.currentState === 'crouch';
-  const bob = Math.sin(frame / 14) * 1.1;
+  const bob = knockedOut ? 0 : Math.sin(frame / 14) * 1.1;
   const hipY = crouch ? -24 : -55 + bob;
   const neckY = crouch ? -46 : -94 + bob;
   const p: OperatorPose = {
@@ -35,7 +39,7 @@ export function sampleOperatorPose(f: Readonly<FighterState>, frame: number): Op
     p.frontKnee = point(15 + stride * 12, -31);
     p.rearKnee = point(-12 - stride * 12, -29);
   }
-  if (!f.grounded) {
+  if (!f.grounded && !knockedOut) {
     p.frontKnee = point(27, -43); p.frontAnkle = point(13, -19);
     p.rearKnee = point(-16, -33); p.rearAnkle = point(-33, -15);
     p.rearHand = point(-27, -109); p.frontHand = point(31, -115);
@@ -77,7 +81,7 @@ export function sampleOperatorPose(f: Readonly<FighterState>, frame: number): Op
     p.frontElbow = point(23, -67); p.frontHand = point(39, -72);
     p.rearHand = point(-36, -82);
   }
-  if (f.currentState === 'ko' || f.hasLost) {
+  if (knockedOut) {
     p.rootX = -50; p.rootY = -12; p.rotation = Math.PI / 2;
     p.frontHand = point(37, -69); p.rearHand = point(-32, -63);
     p.frontAnkle = point(22, -7); p.rearAnkle = point(-10, -7);

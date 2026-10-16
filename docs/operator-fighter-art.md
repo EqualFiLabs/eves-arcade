@@ -51,8 +51,9 @@ textures in the WebGL renderer. A shallow Phaser container articulates images us
 sampler. Simulation frame and current move definitions drive motion; the
 renderer holds joint poses during hitstop. Paused replays remain still. Each
 renderer removes its own objects and textures during teardown.
-The existing camera can zoom closer (up to 1.8) while retaining its two-target
-fit, margins and world bounds; fighter dimensions remain unchanged.
+The existing camera can zoom closer (up to 1.8) and fits both airborne fighters
+with space for helmets and labels. It zooms out immediately when a jump needs
+room and returns inward smoothly. Fighter dimensions remain unchanged.
 
 Combat, hitboxes, movement, input, damage, scoring, traces and verification are
 unchanged. The rig is visual and is not a hitbox diagnostic. High strikes use

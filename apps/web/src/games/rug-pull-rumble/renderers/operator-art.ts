@@ -102,8 +102,25 @@ export function bakeOperatorAtlas(scene: Phaser.Scene, key: string, appearance?:
     ctx.save(); ctx.translate(x, y);
     const art = paintPart(ctx, part, appearance);
     ctx.restore();
-    texture.add(part, 0, x, y, art.width * 3, art.height * 3);
-    frames[part] = { key, frame: part, ...art };
+    // Crop transparent padding while preserving the original joint origin.
+    // Bounds then describe the painted part, useful for camera verification.
+    const width = art.width * 3, height = art.height * 3;
+    const pixels = ctx.getImageData(x, y, width, height).data;
+    let left = width, right = 0, top = height, bottom = 0;
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        if (pixels[(py * width + px) * 4 + 3] === 0) continue;
+        left = Math.min(left, px); right = Math.max(right, px + 1);
+        top = Math.min(top, py); bottom = Math.max(bottom, py + 1);
+      }
+    }
+    if (left >= right || top >= bottom) throw new Error(`Empty Operator part ${part}`);
+    texture.add(part, 0, x + left, y + top, right - left, bottom - top);
+    frames[part] = {
+      key, frame: part, width: (right - left) / 3, height: (bottom - top) / 3,
+      originX: (art.originX * width - left) / (right - left),
+      originY: (art.originY * height - top) / (bottom - top),
+    };
   });
   texture.refresh();
   return frames;

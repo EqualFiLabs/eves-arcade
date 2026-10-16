@@ -25,6 +25,15 @@ describe('Operator fighter artwork coverage', () => {
 });
 
 describe('presentation-only pose sampler', () => {
+  it('holds impact poses but gives static terminal KO priority over hitstop', () => {
+    const fighter = new RprMatch(42).state.player;
+    const previous = sampleOperatorPose(fighter, 1);
+    expect(sampleOperatorPose({ ...fighter, hitstopFramesRemaining: 4 }, 10, previous)).toBe(previous);
+    const terminal = { ...fighter, currentState: 'ko' as const, hasLost: true, hitstopFramesRemaining: 4 };
+    const fallen = sampleOperatorPose(terminal, 10, previous);
+    expect(fallen.rotation).toBeCloseTo(Math.PI / 2);
+    expect(sampleOperatorPose(terminal, 90, previous)).toEqual(fallen);
+  });
   it('reads real match snapshots without changing deterministic state', () => {
     const a = new RprMatch(42), b = new RprMatch(42);
     for (let frame = 0; frame < 180; frame++) {

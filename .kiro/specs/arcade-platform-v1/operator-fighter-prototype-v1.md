@@ -22,7 +22,8 @@ depends on unmerged `feat/operator-nft-plumbing` (PR #1); deliver a stacked PR.
 - Bake vector parts once per renderer; update transforms during fights. Own
   and release all generated textures and objects on teardown, including replay.
 - Permit closer camera framing (maximum zoom 1.8) to read the new art. Retain
-  dual-target fit, world bounds, margins, smoothing and simulation dimensions.
+  dual-target fit, world bounds, margins and simulation dimensions. Fit airborne
+  fighter extents, zoom out immediately when needed and smooth inward motion.
 - Keep combat, input, hitboxes, scoring, verification, traces, stored matches,
   API and catalog schema unchanged. Final art, sound, stage redesign, animation
   authoring tools and historical identity persistence are outside this slice.

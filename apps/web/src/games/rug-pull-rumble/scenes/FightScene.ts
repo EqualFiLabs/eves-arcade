@@ -211,7 +211,7 @@ export class FightScene extends Phaser.Scene {
     this.playerRenderer.sync(s.player, s.frame);
     this.cpuRenderer.sync(s.cpu, s.frame);
     this.hud.sync(s.player, s.cpu, s.status);
-    this.fightCam.update(s.player.position.x, s.cpu.position.x, delta);
+    this.fightCam.update(s.player.position.x, s.cpu.position.x, delta, s.player.position.y, s.cpu.position.y);
   }
 
   /**
