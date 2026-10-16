@@ -4,6 +4,7 @@ import { loadConfig } from './config';
 import { Store, type ArcadeStore } from './store';
 import { PostgresStore } from './postgres-store';
 import { migrate } from './migrate';
+import { PostgresOperatorCatalog } from './operators/catalog';
 import { MemorySessionRateLimiter, PostgresSessionRateLimiter } from './rate-limit';
 import { WorkerVerificationExecutor } from './verify/executor';
 
@@ -24,7 +25,8 @@ const executor = new WorkerVerificationExecutor({
 const rateLimiter = store instanceof PostgresStore
   ? new PostgresSessionRateLimiter(store, config)
   : new MemorySessionRateLimiter(config);
-const app = createApp({ config, store, executor, rateLimiter });
+const operators = store instanceof PostgresStore ? new PostgresOperatorCatalog(store.pool) : undefined;
+const app = createApp({ config, store, executor, rateLimiter, operators });
 
 serve(app, config.port, { maxBodyBytes: config.maxRequestBodyBytes });
 console.log(JSON.stringify({ level: 'info', event: 'api_listening', port: config.port }));

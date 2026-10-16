@@ -1,6 +1,8 @@
 /** Hono API for durable ranked sessions, replay verification, and leaderboards. */
 import { Hono, type Context } from 'hono';
 import { randomUUID } from 'node:crypto';
+import { operatorRoutes } from './operators/routes';
+import type { OperatorCatalog } from './operators/catalog';
 import type { ApiConfig } from './config';
 import { signTicket, verifyTicketSig, newSeed, newSessionId } from './crypto';
 import {
@@ -38,6 +40,7 @@ import {
 } from './verify/executor';
 
 export interface AppDeps {
+  operators?: OperatorCatalog;
   config: ApiConfig;
   store: ArcadeStore;
   executor?: VerificationExecutor;
@@ -83,6 +86,7 @@ export function createApp(deps: AppDeps): Hono {
   });
 
   app.get('/health', (c) => c.json({ ok: true }));
+  app.route('/operators', operatorRoutes(deps.operators));
   app.get('/ready', async (c) => {
     const database = await store.healthCheck();
     const referenced = await store.referencedVerifierKeys();
@@ -91,10 +95,13 @@ export function createApp(deps: AppDeps): Hono {
       (entry) => `${entry.verifier.id}@${entry.verifier.revision}` === key,
     ));
     const missingCategories = referencedCategories.filter((id) => !leaderboards.get(id));
-    const ok = database && executor.ready && missing.length === 0 && missingCategories.length === 0;
+    const operators = deps.operators ? await deps.operators.ready() : false;
+    const ok = database && executor.ready && missing.length === 0 && missingCategories.length === 0
+      && (config.environment !== 'production' || operators);
     return c.json({
       ok,
       database,
+      operators,
       workers: executor.ready,
       missingVerifiers: missing,
       missingCategories,

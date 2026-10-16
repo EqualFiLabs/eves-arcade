@@ -1,7 +1,8 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig({
-  entry: ['src/index.ts', 'src/verify/worker-task.ts', 'src/migrate-cli.ts'],
+  entry: { index: 'src/index.ts', 'verify/worker-task': 'src/verify/worker-task.ts',
+    'migrate-cli': 'src/migrate-cli.ts', 'import-operators': 'src/operators/import-cli.ts' },
   format: ['esm'],
   target: 'node20',
   sourcemap: true,

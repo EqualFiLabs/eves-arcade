@@ -13,3 +13,4 @@
 export * from './types';
 export * from './trace';
 export * from './hash';
+export * from './operators';
