@@ -208,8 +208,8 @@ export class FightScene extends Phaser.Scene {
     // Presentation follows simulation (Property 10).
     const s = this.match.state;
     this.stage.sync(s.stage);
-    this.playerRenderer.sync(s.player);
-    this.cpuRenderer.sync(s.cpu);
+    this.playerRenderer.sync(s.player, s.frame);
+    this.cpuRenderer.sync(s.cpu, s.frame);
     this.hud.sync(s.player, s.cpu, s.status);
     this.fightCam.update(s.player.position.x, s.cpu.position.x, delta);
   }

@@ -51,12 +51,16 @@ export class ReplayScene extends Phaser.Scene {
   private effects!: EffectsRenderer;
   private fightCam!: FightCamera;
   private hudCam!: Phaser.Cameras.Scene2D.Camera;
+  private resourcesReleased = false;
 
   constructor() {
     super({ key: 'ReplayScene' });
   }
 
   create(): void {
+    this.resourcesReleased = false;
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
     this.events.once(Phaser.Scenes.Events.CREATE, () => {
       (this.game.registry.get('arcadeReplayReady') as (() => void) | undefined)?.();
     });
@@ -139,8 +143,8 @@ export class ReplayScene extends Phaser.Scene {
     // Sync renderers (identical to FightScene).
     const s = this.match.state;
     this.stage.sync(s.stage);
-    this.playerRenderer.sync(s.player);
-    this.cpuRenderer.sync(s.cpu);
+    this.playerRenderer.sync(s.player, s.frame);
+    this.cpuRenderer.sync(s.cpu, s.frame);
     this.hud.sync(s.player, s.cpu, s.status);
     this.fightCam.update(s.player.position.x, s.cpu.position.x, delta);
   }
@@ -154,6 +158,8 @@ export class ReplayScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    if (this.resourcesReleased) return;
+    this.resourcesReleased = true;
     this.stage?.destroy();
     this.playerRenderer?.destroy();
     this.cpuRenderer?.destroy();

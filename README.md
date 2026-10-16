@@ -3,6 +3,8 @@
 Rug Pull Rumble is the first game in a Phaser 4 arcade platform. The workspace
 contains a DOM arcade shell, a deterministic TypeScript combat simulation, game
 content, shared controls/protocol packages, and a replay-verifying API.
+RPR now includes an [Operator fighter art prototype](docs/operator-fighter-art.md):
+catalog-driven helmets, markings and colors on shared animated vector armor.
 
 ## Local development
 
