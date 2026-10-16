@@ -1,8 +1,9 @@
 import * as Phaser from 'phaser';
 import type { FighterDefinition, FighterState } from '@rpr/sim';
+import type { OperatorAppearance } from '@rpr/protocol';
 
-const SMINEM_COLOR = 0x7cf6a4;
-const BOGDANOFF_COLOR = 0xff6b6b;
+const PLAYER_COLOR = 0x7cf6a4;
+const CPU_COLOR = 0xff6b6b;
 
 /**
  * FighterRenderer — renders a fighter from `FighterState` in sim world space
@@ -32,9 +33,11 @@ export class FighterRenderer {
     isPlayer: boolean,
     floorY: number,
     depth = 0,
+    appearance?: OperatorAppearance,
   ) {
-    this.color = isPlayer ? SMINEM_COLOR : BOGDANOFF_COLOR;
-    this.name = isPlayer ? 'SMINEM' : 'BOGDANOFF';
+    this.color = isPlayer ? PLAYER_COLOR : CPU_COLOR;
+    const role = isPlayer ? 'PLAYER' : 'CPU';
+    this.name = appearance ? `${role} #${appearance.tokenId}` : role;
     this.floorY = floorY;
     this.gfx = scene.add.graphics().setDepth(depth);
     this.shadow = scene.add.graphics().setDepth(depth - 1);

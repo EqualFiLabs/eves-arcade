@@ -26,6 +26,7 @@ const TEARDOWN_TIMEOUT_MS = 5_000;
 export type ArcadeShellStateKind =
   | 'SELECTING'
   | 'LOADING_MODULE'
+  | 'PREPARING_GAME'
   | 'ACQUIRING_SESSION'
   | 'LAUNCHING'
   | 'PLAYING'
@@ -37,6 +38,7 @@ export type ArcadeShellStateKind =
 
 export type ArcadeErrorStage =
   | 'module-load'
+  | 'preparation'
   | 'session'
   | 'launch'
   | 'ready'
@@ -88,7 +90,8 @@ type StateListener = (snapshot: Readonly<ArcadeShellSnapshot>) => void;
 
 const ALLOWED_TRANSITIONS: Readonly<Record<ArcadeShellStateKind, readonly ArcadeShellStateKind[]>> = {
   SELECTING: ['LOADING_MODULE', 'DESTROYED'],
-  LOADING_MODULE: ['ACQUIRING_SESSION', 'TEARING_DOWN'],
+  LOADING_MODULE: ['PREPARING_GAME', 'ACQUIRING_SESSION', 'TEARING_DOWN'],
+  PREPARING_GAME: ['ACQUIRING_SESSION', 'TEARING_DOWN'],
   ACQUIRING_SESSION: ['LAUNCHING', 'TEARING_DOWN'],
   LAUNCHING: ['PLAYING', 'TEARING_DOWN'],
   PLAYING: ['COMPLETING', 'TEARING_DOWN'],
@@ -251,6 +254,22 @@ export class ArcadeShell {
       const module = await operation.manifest.load();
       if (!this.owns(operation)) return;
 
+      let launcher = module;
+      if (module.prepare) {
+        stage = 'preparation';
+        this.transition(this.operationSnapshot('PREPARING_GAME', operation));
+        this.renderPending(operation, 'Choose your setup');
+        this.root.querySelector('section')!.removeAttribute('aria-busy');
+        const surface = document.createElement('div');
+        this.root.querySelector('section')!.append(surface);
+        operation.mount = surface;
+        launcher = await module.prepare({ mount: surface, signal: operation.controller.signal });
+        if (!this.owns(operation)) return;
+        if (!launcher || typeof launcher.launch !== 'function') {
+          throw new ContractError('Game preparation returned an invalid launcher');
+        }
+      }
+
       stage = 'session';
       this.transition(this.operationSnapshot('ACQUIRING_SESSION', operation));
       this.renderPending(operation, 'Preparing session…');
@@ -266,7 +285,7 @@ export class ArcadeShell {
       stage = 'launch';
       this.transition(this.operationSnapshot('LAUNCHING', operation));
       operation.mount = this.renderGameSurface(operation);
-      operation.handle = module.launch({
+      operation.handle = launcher.launch({
         mount: operation.mount,
         session: operation.session,
         settings: this.settings,

@@ -1,5 +1,10 @@
 # Requirements Document
 
+> **Operator extension:** [Operator catalog V1](../arcade-platform-v1/operator-catalog-v1.md)
+> supersedes fixed visual identities, keyboard-only menu entry and unconditional
+> offline startup for RPR. Combat roles, rules, tickets and replay formats stay
+> unchanged; other games retain their existing session fallback behavior.
+
 > **Status update (2026-07-07):** The project is evolving into a multi-game crypto meme arcade — see `.kiro/specs/arcade-platform-v1/`. This spec remains the record for the Rug Pull Rumble fight itself. Two scoped changes:
 >
 > 1. **Requirement 18 non-goals are V1-scoped, not permanent.** Backend services (18.9), token rewards (18.7), mobile controls (18.11), and leaderboard infrastructure are now *planned platform work* under `arcade-platform-v1` (session tickets, server-side replay verification, touch controls). The V1 fight itself still satisfies all of Requirement 18: unranked play must remain fully playable from static hosting with no backend (this constraint is preserved as `arcade-platform-v1` Requirement 9.5).

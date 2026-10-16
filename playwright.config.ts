@@ -5,6 +5,9 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
+  // Software-rendered fights compete for CPU on shared CI runners. Serialize
+  // them so the real-time KO assertions keep their existing deadlines.
+  workers: process.env.CI ? 1 : undefined,
   // Headless software-GL renders slower than real GPUs; fights take ~20-30s to
   // reach KO, so the global timeout gives room for KO + result flow + replay.
   timeout: 120_000,
@@ -13,21 +16,21 @@ export default defineConfig({
     {
       command: 'pnpm --filter @rpr/api start',
       url: 'http://127.0.0.1:3000/health',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
       env: { BUILD_VERSION: 'test', KNOWN_BUILD_VERSIONS: 'test' },
     },
     {
       command: 'pnpm dev',
       url: 'http://localhost:5173',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
       env: { BUILD_VERSION: 'test' },
     },
   ],
   use: {
     baseURL: 'http://localhost:5173',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
   },
   projects: [
     {

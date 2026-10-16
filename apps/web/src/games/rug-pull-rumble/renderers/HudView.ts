@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import type { FighterState, RoundStatus } from '@rpr/sim';
 import { gameCopy } from '@rpr/content';
+import type { RprOperatorSelection } from '../operator-selection';
 
 const BAR_W = 460;
 const BAR_H = 22;
@@ -21,6 +22,7 @@ export class HudView {
   private readonly hpFill: Phaser.GameObjects.Graphics;
   private readonly meterFill: Phaser.GameObjects.Graphics;
   private readonly names: Phaser.GameObjects.Text;
+  private readonly portraits: Phaser.GameObjects.Image[] = [];
   private readonly centerText: Phaser.GameObjects.Text;
   private readonly restartHint: Phaser.GameObjects.Text;
   private centerShown = false;
@@ -28,7 +30,7 @@ export class HudView {
   private cachedLine = '';
   private cachedKo = '';
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, selection?: RprOperatorSelection) {
     this.scene = scene;
     const { width, height } = scene.scale;
     const topY = 22;
@@ -39,12 +41,22 @@ export class HudView {
     this.meterFill = scene.add.graphics();
 
     this.names = scene.add
-      .text(width / 2, topY + 6, 'SMINEM                      BOGDANOFF', {
+      .text(width / 2, topY + 42, selection
+        ? `PLAYER · Operator #${selection.player.appearance.tokenId}          CPU · Operator #${selection.cpu.appearance.tokenId}`
+        : 'PLAYER                      CPU', {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#cfd6dd',
       })
       .setOrigin(0.5, 0);
+
+    if (selection) {
+      for (const [side, x] of [['player', 68], ['cpu', width - 68]] as const) {
+        const key = `operator-${side}`;
+        scene.textures.addImage(key, selection[side].image);
+        this.portraits.push(scene.add.image(x, topY + 66, key).setDisplaySize(56, 56));
+      }
+    }
 
     this.centerText = scene.add
       .text(width / 2, height * 0.4, '', {
@@ -59,7 +71,7 @@ export class HudView {
       .setVisible(false);
 
     this.restartHint = scene.add
-      .text(width / 2, height - 18, `${gameCopy.restartHint}   |   Esc: menu   |   ${gameCopy.muteHint}`, {
+      .text(width / 2, height - 18, `${gameCopy.restartHint}   |   ${gameCopy.muteHint}`, {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#6a7385',
@@ -132,7 +144,7 @@ export class HudView {
   }
 
   get objects(): Phaser.GameObjects.GameObject[] {
-    return [this.hpBg, this.hpFill, this.meterFill, this.names, this.centerText, this.restartHint];
+    return [this.hpBg, this.hpFill, this.meterFill, this.names, ...this.portraits, this.centerText, this.restartHint];
   }
 
   destroy(): void {
@@ -140,6 +152,7 @@ export class HudView {
     this.hpFill.destroy();
     this.meterFill.destroy();
     this.names.destroy();
+    for (const portrait of this.portraits) portrait.destroy();
     this.centerText.destroy();
     this.restartHint.destroy();
   }

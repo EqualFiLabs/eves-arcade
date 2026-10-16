@@ -11,6 +11,8 @@
     "build": "tsup --config tsup.config.ts",
     "start:prod": "node dist/index.js",
     "migrate": "tsx src/migrate-cli.ts",
+    "operators:import": "tsx src/operators/import-cli.ts",
+    "operators:package": "tsx src/operators/package-export-cli.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src"
   },

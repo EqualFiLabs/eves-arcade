@@ -1,5 +1,10 @@
 # Design Document: Arcade Platform V1
 
+> **Operator extension:** [Operator catalog V1](operator-catalog-v1.md)
+> supersedes fixed visual identities, keyboard-only menu entry and unconditional
+> offline startup for RPR. Combat roles, rules, tickets and replay formats stay
+> unchanged; other games retain their existing session fallback behavior.
+
 ## Overview
 
 Arcade Platform V1 turns the Rug Pull Rumble repo into a multi-game crypto meme arcade. A DOM shell lists and launches games; each launched game creates and owns its own Phaser 4 instance and is destroyed cleanly on exit. Games share exactly four things: the shell contract (`packages`-level types + context callbacks), the controls layer (`packages/controls`), the client/server protocol (`packages/protocol`), and asset conventions. Everything that gives a game its feel — simulation, renderers, camera, tuning — stays inside the game.

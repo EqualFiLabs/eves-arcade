@@ -39,6 +39,7 @@ import { HudView } from '../renderers/HudView';
 import { StageRenderer } from '../renderers/StageRenderer';
 import { FightCamera } from '../renderers/FightCamera';
 import { EffectsRenderer } from '../renderers/EffectsRenderer';
+import type { RprOperatorSelection } from '../operator-selection';
 
 /** Delay after KO before handing control to the shell result screen (ms). */
 const KO_RESULT_DELAY_MS = 2000;
@@ -79,6 +80,7 @@ export class FightScene extends Phaser.Scene {
   private settled = false;
   private muted = false;
   private resultReported = false;
+  private resourcesReleased = false;
   private readonly toggleMute = (): void => {
     this.muted = !this.muted;
     this.game.registry.set('muted', this.muted);
@@ -91,6 +93,11 @@ export class FightScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.events.once(Phaser.Scenes.Events.CREATE, () => {
+      (this.game.registry.get('arcadeReady') as (() => void) | undefined)?.();
+    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.shutdown, this);
     const ctx = this.game.registry.get('arcade') as ArcadeGameContext | undefined;
     const seed = ctx?.session.seed ?? 0;
 
@@ -120,9 +127,10 @@ export class FightScene extends Phaser.Scene {
 
     // --- Renderers (world space) + HUD (fixed). ---
     this.stage = new StageRenderer(this, this.match.state.stage, marketControlRoom);
-    this.playerRenderer = new FighterRenderer(this, sminemDefinition, true, marketControlRoom.floorY);
-    this.cpuRenderer = new FighterRenderer(this, bogdanoffDefinition, false, marketControlRoom.floorY);
-    this.hud = new HudView(this);
+    const selection = this.game.registry.get('operatorSelection') as RprOperatorSelection;
+    this.playerRenderer = new FighterRenderer(this, sminemDefinition, true, marketControlRoom.floorY, 0, selection.player.appearance);
+    this.cpuRenderer = new FighterRenderer(this, bogdanoffDefinition, false, marketControlRoom.floorY, 0, selection.cpu.appearance);
+    this.hud = new HudView(this, selection);
 
     // --- Combat feedback (particles + screen flash) driven by CombatEvents. ---
     const moveCategoryOf = (id: MoveId): MoveCategory | undefined => v1Moves.find((m) => m.id === id)?.category;
@@ -249,6 +257,8 @@ export class FightScene extends Phaser.Scene {
   }
 
   shutdown(): void {
+    if (this.resourcesReleased) return;
+    this.resourcesReleased = true;
     this.input.keyboard?.off('keydown-M', this.toggleMute);
     this.resultTimer?.remove(false);
     this.resultTimer = null;

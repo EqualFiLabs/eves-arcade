@@ -6,9 +6,14 @@ content, shared controls/protocol packages, and a replay-verifying API.
 
 ## Local development
 
-Install dependencies with `pnpm install`, then start ranked development with:
+Install dependencies with `pnpm install`. Start a local PostgreSQL database and
+import the bundled Operator catalog before starting development:
 
 ```sh
+docker compose -p arcade-dev -f deploy/compose.test.yml up -d --wait
+export DATABASE_URL=postgresql://arcade:arcade-test@127.0.0.1:55432/arcade_test
+pnpm --filter @rpr/api migrate
+pnpm --filter @rpr/api operators:import
 pnpm dev:ranked
 ```
 
@@ -16,8 +21,9 @@ The web app runs at `http://localhost:5173`. Vite forwards its same-origin
 `/api/*` requests to the API at `http://127.0.0.1:3000` and removes the `/api`
 prefix. A production deployment must provide the same routing contract.
 
-`pnpm dev` starts only the web app. If the API cannot be reached, session
-acquisition deliberately falls back to a fully playable unranked session.
+`pnpm dev` starts only the web app. RPR requires the API and imported database
+catalog to select Operators; failed lookups offer retry and never guest fighters.
+After successful selection, unavailable session issuance falls back to unranked play.
 Server validation rejections do not fall back silently: the shell displays the
 configuration or request error.
 
@@ -47,7 +53,9 @@ serves the web build, overwrites forwarding headers, and proxies same-origin
 Production configuration deliberately has no insecure fallbacks. It requires
 `DATABASE_URL`, a ticket secret of at least 32 bytes, an explicit build
 allowlist, and trusted-proxy CIDRs. `/health` is liveness; `/ready` additionally
-checks PostgreSQL, worker capacity, and retained verifier/category references.
+checks PostgreSQL, worker capacity, retained verifier/category references, and
+the complete Operator catalog. Compose runs catalog import after migration and
+before starting the API. See [catalog provenance and operations](docs/operator-catalog.md).
 
 ## Validation
 
@@ -66,5 +74,7 @@ pnpm test:e2e
 `pnpm check:fast` runs types, lint, all non-Docker Vitest suites, both builds,
 and the production fixture-exclusion check. `pnpm check:all` adds PostgreSQL and
 browser flows. GitHub Actions runs those concerns as separate fast, PostgreSQL,
-and browser jobs. Playwright starts both services and exercises ranked,
-offline/unranked, multi-format lifecycle, replay dispatch, and Phaser isolation.
+and browser jobs. Browser tests require Docker, create an isolated seeded
+PostgreSQL database, and start both services. They exercise Operator selection,
+ranked/unranked play, multi-format lifecycle, replay dispatch and Phaser isolation.
+Database suites use port 55432; run integration and browser suites sequentially.

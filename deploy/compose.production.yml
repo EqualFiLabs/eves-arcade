@@ -26,6 +26,17 @@ services:
       postgres: { condition: service_healthy }
     networks: [private]
 
+  operator-catalog:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    command: ["node", "apps/api/dist/import-operators.js"]
+    environment:
+      DATABASE_URL: postgresql://arcade:${POSTGRES_PASSWORD}@postgres:5432/arcade
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    networks: [private]
+
   api:
     build:
       context: ..
@@ -39,7 +50,7 @@ services:
       KNOWN_BUILD_VERSIONS: ${KNOWN_BUILD_VERSIONS:?required}
       TRUSTED_PROXY_CIDRS: 172.30.0.0/24
     depends_on:
-      migrate: { condition: service_completed_successfully }
+      operator-catalog: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/ready').then(r=>{if(!r.ok)process.exit(1)})"]
       interval: 10s

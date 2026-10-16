@@ -1,5 +1,10 @@
 # Implementation Plan: Rug Pull Rumble V1
 
+> **Operator extension:** [Operator catalog V1](../arcade-platform-v1/operator-catalog-v1.md)
+> supersedes fixed visual identities, keyboard-only menu entry and unconditional
+> offline startup for RPR. Combat roles, rules, tickets and replay formats stay
+> unchanged; other games retain their existing session fallback behavior.
+
 ## Overview
 
 Build Rug Pull Rumble V1 as a greenfield Phaser 4 browser game with a pure TypeScript combat simulation package, data-driven fighter content, one Sminem vs Bogdanoff CPU fight, one stage, static deployment support, share copy, and configurable distribution hooks. The implementation proceeds bottom-up: workspace setup, simulation core, content definitions, Phaser integration, presentation, CPU behavior, result flow, testing, and release packaging.

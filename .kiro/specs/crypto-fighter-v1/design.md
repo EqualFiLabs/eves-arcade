@@ -1,5 +1,10 @@
 # Design Document: Proof of Fight V1
 
+> **Operator extension:** [Operator catalog V1](../arcade-platform-v1/operator-catalog-v1.md)
+> supersedes fixed visual identities, keyboard-only menu entry and unconditional
+> offline startup for RPR. Combat roles, rules, tickets and replay formats stay
+> unchanged; other games retain their existing session fallback behavior.
+
 > **Status update (2026-07-07):** The project is becoming a multi-game arcade — see `.kiro/specs/arcade-platform-v1/` for the platform design (DOM shell, per-game Phaser instances, shared controls package, touch/mobile, session tickets, server-side replay verification). Deltas affecting this design: `ResultScene`/`ShareView`/`DistributionHookView` move to the shell as a DOM result screen; the game lives under `apps/web/src/games/rug-pull-rumble/` and is launched via `ArcadeGameModule`; input sources move to `packages/controls` (the `RawInputState`→`CombatInput` reduction stays in `@rpr/sim`); the fight seed comes from the session context instead of a constant. The deterministic fixed-step simulation described here is unchanged — it is now also the basis for server-side score verification.
 
 ## Overview

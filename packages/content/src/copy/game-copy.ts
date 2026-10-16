@@ -31,21 +31,21 @@ export interface ShareCopy {
 
 export const gameCopy: GameCopy = {
   title: 'Rug Pull Rumble',
-  subtitle: 'Sminem vs Bogdanoff — Proof of Fight',
+  subtitle: 'Operators enter. Diamond hands prevail.',
   roundStart: ['ROUND 1', 'SHOW THEM THE WAY'],
   fightStart: ['Diamond hands ready… FIGHT!', 'LOADING BAGS… FIGHT!'],
   playerWin: [
-    'SMINEM HOLDS THE LINE!',
+    'YOUR OPERATOR HOLDS THE LINE!',
     'REKT THE PAPER HANDS!',
     'BULL RUN CONFIRMED.',
   ],
   playerLoss: [
-    'BOGDANOFF DUMPS AGAIN…',
+    'THE OPPONENT DUMPS AGAIN…',
     'LIQUIDATED. TYPICAL.',
     'HE WAS ON THE PHONE.',
   ],
   ko: ['K.O.', 'LIQUIDATED', 'REKT'],
-  restartHint: 'Press ENTER to run it back',
+  restartHint: 'Run it back from the result screen',
   muteHint: 'Press M to mute',
   unsupportedBrowser:
     'This browser cannot run the rumble. Try a current desktop Chromium, Firefox, or Safari.',
@@ -63,14 +63,26 @@ export const bogdanoffCopy: FighterCopyLines = {
 
 export const shareCopy: ShareCopy = {
   win: [
-    'I just rekt Bogdanoff in Rug Pull Rumble! Diamond hands prevail.',
-    'Bull run confirmed — beat Bogdanoff in Rug Pull Rumble.',
+    'My Operator just won in Rug Pull Rumble! Diamond hands prevail.',
+    'Bull run confirmed — another win in Rug Pull Rumble.',
     'He was on the phone, but I still won. Rug Pull Rumble.',
   ],
   loss: [
-    'Bogdanoff dumped on me again... running it back in Rug Pull Rumble.',
+    'My Operator got liquidated... running it back in Rug Pull Rumble.',
     'Liquidated. Typical. But I diamond-handed my way back. Rug Pull Rumble.',
     'The chart lied. One more round in Rug Pull Rumble.',
   ],
   url: 'https://rugpullrumble.xyz',
 };
+
+export const operatorCopy = {
+  title: 'Choose your Operators',
+  description: 'Pick any Operator from #1 to #5555 for you and the CPU. No wallet needed.',
+  player: 'Player', cpu: 'CPU', tokenId: 'Operator token ID',
+  load: 'Load', randomize: 'Randomize', fight: 'Fight', retry: 'Retry',
+  loading: 'Loading Operator…',
+  invalidId: 'Enter an Operator ID from 1 to 5555.',
+  notFound: 'Operator not found. Choose another ID.',
+  unavailable: 'Operator catalog unavailable. Please retry.',
+  controls: 'Move: arrows · Block: Left Shift · Light high/low: A/Z · Heavy high/low: S/X · Special: C · Super: V · Mute: M. Touch controls appear in the fight.',
+} as const;

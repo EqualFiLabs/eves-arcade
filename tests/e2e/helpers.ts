@@ -20,14 +20,30 @@ export async function runningSceneKey(page: Page): Promise<string | undefined> {
 
 /**
  * Launches Rug Pull Rumble through the arcade shell (selection → dynamic import
- * → Phaser.Game) and waits until the in-game MenuScene is running. The shell is
+ * → Operator selection → Phaser.Game) and waits until FightScene is running. The shell is
  * DOM; the game is canvas, so this bridges both layers.
  */
 export async function launchRprViaShell(page: Page): Promise<void> {
   await page.goto('/');
   await expect(page.locator('.arcade-game')).toBeVisible();
   await page.locator('.arcade-game').first().click();
+  await chooseRprOperators(page);
+  await page.getByRole('button', { name: 'Fight', exact: true }).click();
   // The game canvas mounts inside #arcade-mount once Phaser boots.
   await expect(page.locator('canvas')).toBeVisible();
-  await expect.poll(() => runningSceneKey(page)).toBe('MenuScene');
+  await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
+}
+
+export async function selectOperator(page: Page, side: 'player' | 'cpu', tokenId: number): Promise<void> {
+  const panel = page.locator(`fieldset[data-side="${side}"]`);
+  await panel.getByLabel('Operator token ID').fill(String(tokenId));
+  await panel.getByRole('button', { name: 'Load', exact: true }).click();
+  await expect(panel.getByRole('img', { name: `Operator #${tokenId}`, exact: true })).toBeVisible();
+}
+
+export async function chooseRprOperators(page: Page, playerId = 42, cpuId = 5555): Promise<void> {
+  await expect(page.getByRole('heading', { name: 'Choose your Operators' })).toBeVisible();
+  await selectOperator(page, 'player', playerId);
+  await selectOperator(page, 'cpu', cpuId);
+  await expect(page.getByRole('button', { name: 'Fight', exact: true })).toBeEnabled();
 }

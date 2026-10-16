@@ -1,5 +1,10 @@
 # Implementation Plan: Arcade Platform V1
 
+> **Operator extension:** [Operator catalog V1](operator-catalog-v1.md)
+> supersedes fixed visual identities, keyboard-only menu entry and unconditional
+> offline startup for RPR. Combat roles, rules, tickets and replay formats stay
+> unchanged; other games retain their existing session fallback behavior.
+
 ## Overview
 
 Migrate the repo from a single Phaser game to a multi-game arcade in ordered, individually committable steps. Rug Pull Rumble stays playable at every step (Requirement 15); each numbered task ends with `pnpm typecheck`, `pnpm lint`, `pnpm test:sim`, and (where entry flow changed) updated e2e passing. Sequencing: shell boundary → shared controls → touch/mobile → result + trace → backend + verification → replay viewer → Mempool Squadron → rewards readiness. Platform packages are created only where a second consumer exists now: `packages/controls` and `packages/protocol`.

@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { launchRprViaShell, runningSceneKey } from './helpers';
+import { chooseRprOperators, launchRprViaShell, runningSceneKey } from './helpers';
 
 /**
  * Task 4.6 — result-flow e2e. Verifies the full lifecycle:
@@ -17,7 +17,6 @@ test('KO → DOM result screen with score/share/hooks → Play Again relaunches'
     await route.continue();
   });
   await launchRprViaShell(page);
-  await page.keyboard.press('Enter');
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
 
   // Play to KO: walk toward the CPU and trade blows until the round resolves.
@@ -83,14 +82,15 @@ test('KO → DOM result screen with score/share/hooks → Play Again relaunches'
 
   // Play Again: relaunches the game with a fresh Phaser instance.
   await page.locator('.arcade-play-again').click();
+  await chooseRprOperators(page);
+  await page.getByRole('button', { name: 'Fight', exact: true }).click();
   await expect(page.locator('canvas')).toBeVisible({ timeout: 10_000 });
-  await expect.poll(() => runningSceneKey(page), { timeout: 10_000 }).toBe('MenuScene');
+  await expect.poll(() => runningSceneKey(page), { timeout: 10_000 }).toBe('FightScene');
 });
 
 test('Copy button shows a status message (clipboard or selection fallback)', async ({ page }) => {
   await page.route('**/api/sessions', (route) => route.abort());
   await launchRprViaShell(page);
-  await page.keyboard.press('Enter');
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
 
   // Play to KO.
@@ -122,7 +122,6 @@ test('Copy button shows a status message (clipboard or selection fallback)', asy
 
 test('Back to Arcade returns to the game selection screen', async ({ page }) => {
   await launchRprViaShell(page);
-  await page.keyboard.press('Enter');
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
 
   // Play to KO.

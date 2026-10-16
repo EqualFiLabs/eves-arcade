@@ -3,11 +3,11 @@ import { assetManifest, type AssetEntry } from '@rpr/content';
 
 /**
  * PreloadScene — loads every asset manifest entry and shows visible progress
- * (Req 1.5, 11.1, 12.1, 15.5), then routes to the menu.
+ * (Req 1.5, 11.1, 12.1, 15.5), then starts the prepared fight.
  *
  * Placeholder art/audio files may not exist yet (they arrive in later art
- * tasks); a load error for a placeholder is logged but never blocks the menu,
- * so the game always becomes playable. Real renderers do not depend on these
+ * tasks); a load error for a placeholder is logged but never blocks the fight.
+ * Real renderers do not depend on these
  * keys until the art tasks land.
  */
 export class PreloadScene extends Phaser.Scene {
@@ -88,7 +88,7 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start('MenuScene');
+    this.scene.start('FightScene');
   }
 
   private removeLoaderListeners(): void {

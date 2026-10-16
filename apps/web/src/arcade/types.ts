@@ -86,9 +86,20 @@ export interface ArcadeGameHandle {
   destroy(): Promise<void>;
 }
 
-export interface ArcadeGameModule {
+export interface ArcadeGameLauncher {
   /** Launch is synchronous so the shell owns a teardown handle immediately. */
   launch(ctx: ArcadeGameContext): ArcadeGameHandle;
+}
+
+export interface ArcadePreparationContext {
+  mount: HTMLElement;
+  signal: AbortSignal;
+}
+
+export interface ArcadeGameModule extends ArcadeGameLauncher {
+  /** Optional game-owned setup before tickets or readiness deadlines begin.
+   * Release setup resources on resolution, rejection, or signal abort. */
+  prepare?(ctx: ArcadePreparationContext): Promise<ArcadeGameLauncher>;
 }
 
 export type ReplaySpeed = 0.5 | 1 | 2 | 4;

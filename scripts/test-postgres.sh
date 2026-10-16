@@ -8,4 +8,4 @@ trap cleanup EXIT INT TERM
 
 "${compose[@]}" up -d --wait
 export TEST_DATABASE_URL="postgresql://arcade:arcade-test@127.0.0.1:55432/arcade_test"
-pnpm exec vitest run tests/api/postgres-store.test.ts
+pnpm exec vitest run tests/api/postgres-store.test.ts tests/api/operator-catalog.test.ts
