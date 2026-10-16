@@ -65,15 +65,23 @@ export function prepareOperators({ mount, signal }: ArcadePreparationContext): P
         if (!random && (!/^[1-9]\d{0,3}$/.test(value) || Number(value) > 5555)) {
           throw new Error(operatorCopy.invalidId);
         }
-        const other = selected[side === 'player' ? 'cpu' : 'player'];
-        const url = random
-          ? `/api/operators/random${other ? `?exclude=${other.appearance.tokenId}` : ''}`
-          : `/api/operators/${value}`;
-        const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) throw new Error(response.status === 404 ? operatorCopy.notFound : operatorCopy.unavailable);
-        const appearance = parseAppearance(await response.json());
-        const image = await loadPortrait(appearance.imageUrl, controller.signal);
-        if (finished || requests[side] !== controller || controller.signal.aborted) return;
+        const opposite: Side = side === 'player' ? 'cpu' : 'player';
+        let appearance: OperatorAppearance;
+        let image: HTMLImageElement;
+        for (;;) {
+          const other = selected[opposite];
+          const url = random
+            ? `/api/operators/random${other ? `?exclude=${other.appearance.tokenId}` : ''}`
+            : `/api/operators/${value}`;
+          const response = await fetch(url, { signal: controller.signal });
+          if (!response.ok) throw new Error(response.status === 404 ? operatorCopy.notFound : operatorCopy.unavailable);
+          appearance = parseAppearance(await response.json());
+          image = await loadPortrait(appearance.imageUrl, controller.signal);
+          if (finished || requests[side] !== controller || controller.signal.aborted) return;
+          // The opposing selection may change while either request is pending.
+          // Retry within this operation's original deadline before committing.
+          if (!random || selected[opposite]?.appearance.tokenId !== appearance.tokenId) break;
+        }
         inputs[side].value = String(appearance.tokenId);
         image.alt = appearance.name;
         const name = document.createElement('h4');
