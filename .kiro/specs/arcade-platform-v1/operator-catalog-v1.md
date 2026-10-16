@@ -2,6 +2,8 @@
 
 This extension replaces RPR's fixed character identities and unconditional
 static/offline-start requirements. Simulation IDs and kits remain combat roles.
+The subsequent [fighter prototype](operator-fighter-prototype-v1.md) supersedes
+the placeholder-body clause below with articulated cosmetic armor.
 
 ## Requirements
 

@@ -1,5 +1,8 @@
 # Implementation Plan: Rug Pull Rumble V1
 
+> **Fighter art extension:** [Operator fighter prototype](../arcade-platform-v1/operator-fighter-prototype-v1.md)
+> supersedes placeholder body rendering with cosmetic articulated vector armor.
+
 > **Operator extension:** [Operator catalog V1](../arcade-platform-v1/operator-catalog-v1.md)
 > supersedes fixed visual identities, keyboard-only menu entry and unconditional
 > offline startup for RPR. Combat roles, rules, tickets and replay formats stay

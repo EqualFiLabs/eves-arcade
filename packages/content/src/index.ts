@@ -92,3 +92,7 @@ export { createV1FightState, v1FighterDefinitions, v1Moves } from './fight-state
 // CPU
 export type { CpuProfile } from '@rpr/sim';
 export { bogdanoffCpuProfile } from './cpu/bogdanoff-profile';
+
+// Operator fighter presentation data (no simulation effects).
+export { operatorFeatures, operatorFeatureSourceDigest, operatorSignals, operatorMantles, operatorFields, operatorTelemetry, operatorArmor } from './visuals/operator-style';
+export type { OperatorVectorElement } from './visuals/operator-style';

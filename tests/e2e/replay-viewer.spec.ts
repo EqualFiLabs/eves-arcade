@@ -92,6 +92,18 @@ test('pause button stops playback and step advances one frame', async ({ page })
   await toggle.click();
   await expect(toggle).toHaveText('▶ Play');
 
+  const renderedPose = () => page.evaluate(() => {
+    type Rig = { name: string; list: { x: number; y: number; rotation: number }[] };
+    const game = (window as unknown as { __game: { scene: { getScene(key: string): { children: { list: Rig[] } } } } }).__game;
+    return game.scene.getScene('ReplayScene').children.list.filter(o => o.name.startsWith('operator-rig-'))
+      .map(r => r.list.map(p => [p.x, p.y, p.rotation]));
+  });
+  const pausedPose = await renderedPose();
+  expect(pausedPose).toHaveLength(2);
+  // A real pause must stop joint animation as well as the trace counter.
+  await page.waitForTimeout(200);
+  expect(await renderedPose()).toEqual(pausedPose);
+
   // Read current frame, step, verify it advanced.
   const before = await page.locator('.replay-frame-counter').textContent();
   await page.locator('.replay-step').click();

@@ -1,127 +1,101 @@
 import * as Phaser from 'phaser';
 import type { FighterDefinition, FighterState } from '@rpr/sim';
 import type { OperatorAppearance } from '@rpr/protocol';
+import { bakeOperatorAtlas, type ArmorPart } from './operator-art';
+import { sampleOperatorPose, type Joint, type OperatorPose } from './operator-pose';
 
-const PLAYER_COLOR = 0x7cf6a4;
-const CPU_COLOR = 0xff6b6b;
+let rendererId = 0;
 
-/**
- * FighterRenderer — renders a fighter from `FighterState` in sim world space
- * (Req 7.1, 8.2, 6.10). Presentation-only; never mutates combat state.
- *
- * The silhouette is derived from the fighter's pushbox/hurtboxes, flipped to
- * match `facing`, and recolored per `currentState` so each state reads
- * distinctly: idle/walk (fighter color), crouch (shorter), jump (airborne +
- * floor shadow), attack (fighter color + leading arm), block (blue), hitstun
- * (amber flash), blockstun (cyan flash), ko (fallen). Replaced by the textured,
- * animated renderer in Tasks 13.2/13.3 art work.
- */
+/** Articulated vector armor. Reads combat snapshots, owns only presentation. */
 export class FighterRenderer {
-  private readonly gfx: Phaser.GameObjects.Graphics;
-  private readonly shadow: Phaser.GameObjects.Graphics;
+  private readonly rig: Phaser.GameObjects.Container;
+  private readonly shadow: Phaser.GameObjects.Ellipse;
+  private readonly seal: Phaser.GameObjects.Image;
   private readonly label: Phaser.GameObjects.Text;
-  private readonly color: number;
-  private readonly bodyW: number;
-  private readonly bodyH: number;
-  private readonly crouchH: number;
-  private readonly floorY: number;
-  private readonly name: string;
+  private readonly parts: Record<string, Phaser.GameObjects.Image> = {};
+  private readonly textureKeys: string[] = [];
+  private readonly scale: number;
+  private lastPose?: OperatorPose;
+  private destroyed = false;
 
   constructor(
-    scene: Phaser.Scene,
-    private readonly def: FighterDefinition,
+    private readonly scene: Phaser.Scene,
+    def: FighterDefinition,
     isPlayer: boolean,
-    floorY: number,
+    private readonly floorY: number,
     depth = 0,
     appearance?: OperatorAppearance,
   ) {
-    this.color = isPlayer ? PLAYER_COLOR : CPU_COLOR;
+    const owner = `operator-rig-${++rendererId}`;
     const role = isPlayer ? 'PLAYER' : 'CPU';
-    this.name = appearance ? `${role} #${appearance.tokenId}` : role;
-    this.floorY = floorY;
-    this.gfx = scene.add.graphics().setDepth(depth);
-    this.shadow = scene.add.graphics().setDepth(depth - 1);
-    this.label = scene.add
-      .text(0, 0, '', {
-        fontFamily: 'monospace',
-        fontSize: '11px',
-        color: isPlayer ? '#7cf6a4' : '#ff6b6b',
-      })
-      .setOrigin(0.5, 1)
-      .setDepth(depth + 1);
-
-    const pb = def.pushbox;
-    this.bodyW = pb.width;
-    this.bodyH = pb.height;
-    this.crouchH = def.defaultHurtboxes.crouch[0]?.height ?? pb.height * 0.55;
+    this.scale = def.pushbox.height / 130;
+    this.rig = scene.add.container(0, 0).setDepth(depth).setName(owner);
+    const atlas = bakeOperatorAtlas(scene, owner, appearance);
+    this.textureKeys.push(owner);
+    const image = (part: ArmorPart, name: string): Phaser.GameObjects.Image => {
+      const art = atlas[part];
+      return scene.add.image(0, 0, art.key, art.frame).setDisplaySize(art.width, art.height)
+        .setOrigin(art.originX, art.originY).setName(name);
+    };
+    this.shadow = scene.add.ellipse(0, floorY + 4, 72, 12, 0x000000, 0.5).setDepth(depth - 2);
+    this.seal = image('seal', `${role}-seal`).setDepth(depth - 1).setAlpha(0.35);
+    const add = (name: string, part: ArmorPart): void => {
+      const obj = image(part, name); this.parts[name] = obj; this.rig.add(obj);
+    };
+    add('mantle', 'mantle');
+    for (const side of ['rear', 'front']) { add(`${side}Thigh`, 'thigh'); add(`${side}Shin`, 'shin'); add(`${side}Boot`, 'boot'); }
+    add('rearUpperArm', 'upperArm'); add('rearForearm', 'forearm'); add('rearFist', 'fist'); add('rearShoulder', 'shoulder');
+    add('hip', 'hip'); add('torso', 'torso'); add('abdomen', 'abdomen'); add('head', 'head');
+    add('frontUpperArm', 'upperArm'); add('frontForearm', 'forearm'); add('frontShoulder', 'shoulder'); add('frontFist', 'fist');
+    this.label = scene.add.text(0, 0, appearance ? `${role} · #${appearance.tokenId}` : role, {
+      fontFamily: 'monospace', fontSize: '10px', color: isPlayer ? '#7cf6a4' : '#ff6b6b',
+      stroke: '#080d10', strokeThickness: 3,
+    }).setOrigin(0.5, 1).setDepth(depth + 1);
   }
 
-  sync(f: FighterState): void {
-    const x = f.position.x;
-    const baseY = f.position.y;
-    const isCrouch = f.currentState === 'crouch';
-    const bodyH = isCrouch ? this.crouchH : this.bodyH;
-    const top = baseY - bodyH;
-    const halfW = this.bodyW / 2;
-    const facingSign = f.facing === 'right' ? 1 : -1;
-    const ko = f.currentState === 'ko' || f.hasLost;
-
-    this.gfx.clear();
-    this.shadow.clear();
-
-    // Floor shadow (stronger when grounded).
-    const airborne = !f.grounded;
-    const shadowAlpha = airborne ? 0.18 : 0.4;
-    this.shadow.fillStyle(0x000000, shadowAlpha);
-    this.shadow.fillEllipse(x, this.floorY + 4, this.bodyW * 1.1, 12);
-
-    // Body color by state.
-    let fill = this.color;
-    if (f.currentState === 'block' || f.currentState === 'blockstun') fill = 0x6bb8ff;
-    else if (f.currentState === 'hitstun') fill = 0xffd866;
-
-    if (ko) {
-      // Fallen: flat slab on the floor.
-      this.gfx.fillStyle(fill, 0.85);
-      this.gfx.lineStyle(3, 0xff6b6b, 0.9);
-      this.gfx.fillRoundedRect(x - this.bodyH / 2, this.floorY - 24, this.bodyH, 36, 8);
-      this.gfx.strokeRoundedRect(x - this.bodyH / 2, this.floorY - 24, this.bodyH, 36, 8);
-    } else {
-      // Body box.
-      this.gfx.lineStyle(3, fill, 1);
-      this.gfx.fillStyle(fill, 0.82);
-      this.gfx.fillRoundedRect(x - halfW, top, this.bodyW, bodyH, 6);
-      this.gfx.strokeRoundedRect(x - halfW, top, this.bodyW, bodyH, 6);
-
-      // Facing nub (eyes/nose indicator).
-      this.gfx.fillStyle(0xffffff, 0.92);
-      this.gfx.fillRect(x + facingSign * (halfW - 8) - 3, top + 18, 10, 8);
-
-      // Attack: show a leading arm during strikes.
-      if (f.currentState === 'attack') {
-        this.gfx.fillStyle(fill, 0.9);
-        this.gfx.fillRect(x + facingSign * halfW, top + bodyH * 0.35, facingSign * 34, 14);
-      }
-
-      // Walk motion ticks.
-      if (f.currentState === 'walk_forward' || f.currentState === 'walk_backward') {
-        this.gfx.lineStyle(2, 0xffffff, 0.4);
-        const back = -facingSign * (halfW + 6);
-        this.gfx.lineBetween(x + back, top + bodyH * 0.5, x + back - facingSign * 8, top + bodyH * 0.5);
-      }
+  sync(f: FighterState, frame = 0): void {
+    if (this.destroyed) return;
+    const p = sampleOperatorPose(f, frame, this.lastPose);
+    this.lastPose = p;
+    const sign = f.facing === 'right' ? 1 : -1;
+    const baseY = f.hasLost || f.currentState === 'ko' ? this.floorY : f.position.y;
+    this.rig.setPosition(f.position.x + p.rootX * sign * this.scale, baseY + p.rootY * this.scale)
+      .setScale(sign * this.scale, this.scale).setRotation(p.rotation * sign);
+    const at = (name: string, j: Joint, rotation = 0, sx = 1, sy = 1): void => {
+      this.parts[name]!.setPosition(j.x, j.y).setRotation(rotation).setScale(sx / 3, sy / 3);
+    };
+    const bone = (name: string, a: Joint, b: Joint, length = 26): void => {
+      at(name, a, Math.atan2(b.y - a.y, b.x - a.x) - Math.PI / 2, 1, Math.hypot(b.x - a.x, b.y - a.y) / length);
+    };
+    at('mantle', p.neck); at('hip', p.hip);
+    bone('torso', p.neck, p.hip, 39);
+    at('abdomen', { x: p.hip.x, y: p.hip.y - 29 });
+    at('head', p.head, (p.head.x - p.neck.x) * 0.012);
+    for (const side of ['rear', 'front'] as const) {
+      bone(`${side}Thigh`, p[`${side}Hip`], p[`${side}Knee`]);
+      bone(`${side}Shin`, p[`${side}Knee`], p[`${side}Ankle`]);
+      at(`${side}Boot`, p[`${side}Ankle`]);
+      bone(`${side}UpperArm`, p[`${side}Shoulder`], p[`${side}Elbow`]);
+      bone(`${side}Forearm`, p[`${side}Elbow`], p[`${side}Hand`]);
+      at(`${side}Shoulder`, p[`${side}Shoulder`]);
+      at(`${side}Fist`, p[`${side}Hand`], -0.25);
     }
-
-    this.label.setPosition(x, top - 6);
-    this.label.setText(`${this.name}  ${Math.round(f.health)}  m${Math.round(f.meter)}`);
+    const flash = f.currentState === 'hitstun' && frame % 6 < 2;
+    for (const [name, obj] of Object.entries(this.parts)) {
+      if (flash) obj.setTint(0xffffff).setTintMode(Phaser.TintModes.FILL);
+      else obj.setTint(name.startsWith('rear') ? 0xb8c9c2 : 0xffffff).setTintMode(Phaser.TintModes.MULTIPLY);
+    }
+    this.shadow.setPosition(f.position.x, this.floorY + 4).setAlpha(f.grounded ? 0.5 : 0.22);
+    this.seal.setPosition(f.position.x, this.floorY + 3).setScale(1.4 / 3, 0.32 / 3).setAlpha(f.grounded ? 0.35 : 0.15);
+    this.label.setPosition(f.position.x, f.hasLost ? this.floorY - 30 : f.position.y + p.head.y * this.scale - 24);
   }
 
-  get objects(): Phaser.GameObjects.GameObject[] {
-    return [this.gfx, this.shadow, this.label];
-  }
+  get objects(): Phaser.GameObjects.GameObject[] { return [this.rig, this.shadow, this.seal, this.label]; }
 
   destroy(): void {
-    this.gfx.destroy();
-    this.shadow.destroy();
-    this.label.destroy();
+    if (this.destroyed) return;
+    this.destroyed = true;
+    this.rig.destroy(); this.shadow.destroy(); this.seal.destroy(); this.label.destroy();
+    for (const key of this.textureKeys) this.scene.textures.remove(key);
   }
 }

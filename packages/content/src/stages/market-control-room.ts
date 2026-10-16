@@ -13,7 +13,7 @@ export const marketControlRoom: StageDefinition = {
   floorY: 600,
   camera: {
     minZoom: 0.85,
-    maxZoom: 1.15,
+    maxZoom: 1.8,
     deadZoneWidth: 0.4,
     deadZoneHeight: 0.5,
   },

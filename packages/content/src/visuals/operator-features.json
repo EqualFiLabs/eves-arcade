@@ -1,0 +1,571 @@
+{
+  "sourceDigest": "sha256:b9639daf8d898b663dc7b040f1698d89336af6bf89e9c0739b979b9a2524f0f5",
+  "features": {
+    "Shell": {
+      "Angular Helm": [
+        {
+          "tag": "path",
+          "d": "M66 102L85 55L128 38L171 55L190 102L180 169L153 194H103L76 169Z",
+          "stroke": "#F5F7F2",
+          "fill": "#080B09",
+          "stroke-width": "4",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M85 55l19 29h48l19-29M76 169l32-17h40l32 17",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Box Visor": [
+        {
+          "tag": "path",
+          "d": "M64 58H192V181L166 199H90L64 181Z",
+          "stroke": "#F5F7F2",
+          "fill": "#080B09",
+          "stroke-width": "4",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M75 73h106v73H75zM90 181h76",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Heavy Plate": [
+        {
+          "tag": "path",
+          "d": "M55 79L84 44H172L201 79L190 181L162 205H94L66 181Z",
+          "stroke": "#F5F7F2",
+          "fill": "#080B09",
+          "stroke-width": "6",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M84 44l18 35h52l18-35M66 181l35-32h54l35 32",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "3",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Hex Mask": [
+        {
+          "tag": "path",
+          "d": "M64 89L97 45H159L192 89V158L159 197H97L64 158Z",
+          "stroke": "#F5F7F2",
+          "fill": "#080B09",
+          "stroke-width": "4",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M97 45l15 30h32l15-30M64 158l37-20h54l37 20",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Operator Hood": [
+        {
+          "tag": "path",
+          "d": "M54 116L72 66L101 40H155L184 66L202 116L186 188L158 205H98L70 188Z",
+          "stroke": "#F5F7F2",
+          "fill": "#080B09",
+          "stroke-width": "4",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M72 66l28 26-13 91M184 66l-28 26 13 91",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Round Shell": [
+        {
+          "tag": "path",
+          "d": "M70 111C70 66 92 43 128 43S186 66 186 111V154C186 181 165 195 128 195S70 181 70 154Z",
+          "stroke": "#F5F7F2",
+          "fill": "#080B09",
+          "stroke-width": "4",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M79 82C98 59 158 59 177 82",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Slim Mask": [
+        {
+          "tag": "path",
+          "d": "M82 54L109 40H147L174 54L185 101L174 177L151 194H105L82 177L71 101Z",
+          "stroke": "#F5F7F2",
+          "fill": "#080B09",
+          "stroke-width": "3",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M90 60l20 19h36l20-19M83 168l31-17h28l31 17",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Split Head": [
+        {
+          "tag": "path",
+          "d": "M65 92L86 51L123 39V197L91 188L70 163ZM191 92L170 51L133 39V197L165 188L186 163Z",
+          "stroke": "#F5F7F2",
+          "fill": "#080B09",
+          "stroke-width": "4",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M128 39V198M86 51l27 32M170 51l-27 32",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ]
+    },
+    "Interface": {
+      "Basket Grid": [
+        {
+          "tag": "path",
+          "d": "M102 96h13v13h-13zM140 96h13v13h-13zM121 115h13v13h-13zM102 134h13v13h-13zM140 134h13v13h-13z",
+          "stroke": "none",
+          "fill": "$signal",
+          "stroke-width": "0",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M121 96h13v13h-13zM102 115h13v13h-13zM140 115h13v13h-13zM121 134h13v13h-13z",
+          "stroke": "none",
+          "fill": "#F5F7F2",
+          "stroke-width": "0",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Dollar Glyph": [
+        {
+          "tag": "path",
+          "d": "M145 99C134 92 111 96 108 108C105 122 149 113 146 130C144 141 121 144 108 135M128 90V149",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "6",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Double Pipe": [
+        {
+          "tag": "path",
+          "d": "M108 99V138M148 99V138",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "8",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Dual Blocks": [
+        {
+          "tag": "path",
+          "d": "M92 104h29v26H92zM135 104h29v26h-29z",
+          "stroke": "none",
+          "fill": "$signal",
+          "stroke-width": "0",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M121 117h14",
+          "stroke": "#F5F7F2",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Equal Sign": [
+        {
+          "tag": "path",
+          "d": "M96 101h64v9H96zM96 126h64v9H96z",
+          "stroke": "none",
+          "fill": "$signal",
+          "stroke-width": "0",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Glider": [
+        {
+          "tag": "circle",
+          "cx": "108",
+          "cy": "133",
+          "r": "7",
+          "fill": "$signal"
+        },
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "133",
+          "r": "7",
+          "fill": "$signal"
+        },
+        {
+          "tag": "circle",
+          "cx": "148",
+          "cy": "133",
+          "r": "7",
+          "fill": "$signal"
+        },
+        {
+          "tag": "circle",
+          "cx": "148",
+          "cy": "114",
+          "r": "7",
+          "fill": "$signal"
+        },
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "95",
+          "r": "7",
+          "fill": "$signal"
+        }
+      ],
+      "Narrow Visor": [
+        {
+          "tag": "path",
+          "d": "M91 110H165L156 125H100Z",
+          "fill": "$signal"
+        },
+        {
+          "tag": "path",
+          "d": "M104 116h48",
+          "stroke": "#030504",
+          "fill": "none",
+          "stroke-width": "3",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Peg Bar": [
+        {
+          "tag": "path",
+          "d": "M89 117H167",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "8",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M128 98V136",
+          "stroke": "#F5F7F2",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "117",
+          "r": "5",
+          "fill": "#030504",
+          "stroke": "#F5F7F2",
+          "stroke-width": "2"
+        }
+      ]
+    },
+    "Sigil": {
+      "Basket Core": [
+        {
+          "tag": "path",
+          "d": "M114 193h28v28h-28z",
+          "stroke": "$signal",
+          "fill": "#050705",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M119 198h7v7h-7zM130 198h7v7h-7zM119 209h7v7h-7zM130 209h7v7h-7z",
+          "fill": "$signal"
+        }
+      ],
+      "Dollar Core": [
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "207",
+          "r": "14",
+          "fill": "#050705",
+          "stroke": "$signal",
+          "stroke-width": "2"
+        },
+        {
+          "tag": "path",
+          "d": "M133 196c-12-5-17 5-5 10s7 15-5 11M128 191v31",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Empty": [],
+      "Equal Seal": [
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "207",
+          "r": "14",
+          "fill": "#050705",
+          "stroke": "$signal",
+          "stroke-width": "2"
+        },
+        {
+          "tag": "path",
+          "d": "M119 202h18M119 211h18",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "3",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Liquidity Mark": [
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "207",
+          "r": "14",
+          "fill": "#050705",
+          "stroke": "$signal",
+          "stroke-width": "2"
+        },
+        {
+          "tag": "path",
+          "d": "M116 212c5-16 19-16 24 0M119 202h18",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Position Key": [
+        {
+          "tag": "path",
+          "d": "M114 201l14-10 14 10-5 17h-18Z",
+          "stroke": "$signal",
+          "fill": "#050705",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "205",
+          "r": "4",
+          "fill": "$signal"
+        }
+      ],
+      "Risk Share": [
+        {
+          "tag": "path",
+          "d": "M128 191L143 200L138 218H118L113 200Z",
+          "stroke": "$signal",
+          "fill": "#050705",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M128 196v17",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "3",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Staking Sigil": [
+        {
+          "tag": "path",
+          "d": "M128 190l5 11 12 1-9 8 3 12-11-6-11 6 3-12-9-8 12-1Z",
+          "stroke": "$signal",
+          "fill": "#050705",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ]
+    },
+    "Boundary": {
+      "Broken Ring": [
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "128",
+          "r": "112",
+          "stroke": "#F5F7F2",
+          "fill": "none",
+          "stroke-width": "5",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter",
+          "stroke-dasharray": "38 13"
+        },
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "128",
+          "r": "103",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "1",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter",
+          "stroke-dasharray": "7 18"
+        }
+      ],
+      "Double Ring": [
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "128",
+          "r": "114",
+          "fill": "none",
+          "stroke": "#F5F7F2",
+          "stroke-width": "3"
+        },
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "128",
+          "r": "105",
+          "fill": "none",
+          "stroke": "$signal",
+          "stroke-width": "2"
+        }
+      ],
+      "Peg Frame": [
+        {
+          "tag": "path",
+          "d": "M46 17H210L239 46V210L210 239H46L17 210V46Z",
+          "stroke": "#F5F7F2",
+          "fill": "none",
+          "stroke-width": "4",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M75 25h106M75 231h106M25 75v106M231 75v106",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Reticle Ring": [
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "128",
+          "r": "109",
+          "fill": "none",
+          "stroke": "#F5F7F2",
+          "stroke-width": "3"
+        },
+        {
+          "tag": "path",
+          "d": "M128 7v25M128 224v25M7 128h25M224 128h25M43 43l17 17M196 196l17 17M43 213l17-17M196 60l17-17",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "4",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Shield Ring": [
+        {
+          "tag": "path",
+          "d": "M128 10L224 40V124C224 184 184 226 128 245C72 226 32 184 32 124V40Z",
+          "stroke": "#F5F7F2",
+          "fill": "none",
+          "stroke-width": "4",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        },
+        {
+          "tag": "path",
+          "d": "M128 21L213 48",
+          "stroke": "$signal",
+          "fill": "none",
+          "stroke-width": "2",
+          "stroke-linecap": "square",
+          "stroke-linejoin": "miter"
+        }
+      ],
+      "Single Ring": [
+        {
+          "tag": "circle",
+          "cx": "128",
+          "cy": "128",
+          "r": "113",
+          "fill": "none",
+          "stroke": "#F5F7F2",
+          "stroke-width": "4"
+        }
+      ]
+    }
+  }
+}
