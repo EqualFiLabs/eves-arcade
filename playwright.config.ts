@@ -13,21 +13,21 @@ export default defineConfig({
     {
       command: 'pnpm --filter @rpr/api start',
       url: 'http://127.0.0.1:3000/health',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
       env: { BUILD_VERSION: 'test', KNOWN_BUILD_VERSIONS: 'test' },
     },
     {
       command: 'pnpm dev',
       url: 'http://localhost:5173',
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 120_000,
       env: { BUILD_VERSION: 'test' },
     },
   ],
   use: {
     baseURL: 'http://localhost:5173',
-    trace: 'on-first-retry',
+    trace: 'retain-on-failure',
   },
   projects: [
     {

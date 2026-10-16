@@ -33,6 +33,63 @@ afterEach(async () => {
 });
 
 describe('ArcadeShell lifecycle', () => {
+  it('prepares before acquiring a ticket and uses the returned launcher', async () => {
+    const fixture = gameFixture({ ranked: true });
+    const prepared = deferred<ArcadeGameModule>();
+    const acquireSession = vi.fn(async () => ticketedSession());
+    const module = await fixture.load();
+    module.prepare = vi.fn(() => prepared.promise);
+    const shell = createShell(fixture.manifest, { acquireSession });
+    shell.start();
+    click('.arcade-game');
+    await waitForState(shell, 'PREPARING_GAME');
+    expect(acquireSession).not.toHaveBeenCalled();
+    expect(fixture.launch).not.toHaveBeenCalled();
+    const launch = vi.fn(fixture.launch);
+    prepared.resolve({ launch });
+    await waitForState(shell, 'LAUNCHING');
+    expect(acquireSession).toHaveBeenCalledTimes(1);
+    expect(launch).toHaveBeenCalledTimes(1);
+    fixture.ready.resolve();
+    await waitForState(shell, 'PLAYING');
+  });
+
+  it('aborts preparation and ignores its late resolution after another selection', async () => {
+    const fixture = gameFixture({ ranked: true });
+    const prepared = deferred<ArcadeGameModule>();
+    const acquireSession = vi.fn(async () => ticketedSession());
+    const module = await fixture.load();
+    let signal: AbortSignal | undefined;
+    module.prepare = async (ctx) => { signal = ctx.signal; return prepared.promise; };
+    const shell = createShell(fixture.manifest, { acquireSession });
+    shell.start();
+    click('.arcade-game');
+    await waitForState(shell, 'PREPARING_GAME');
+    click('.arcade-cancel');
+    await waitForState(shell, 'SELECTING');
+    expect(signal?.aborted).toBe(true);
+    prepared.resolve(module);
+    await nextTurn();
+    expect(acquireSession).not.toHaveBeenCalled();
+    expect(fixture.launch).not.toHaveBeenCalled();
+  });
+
+  it('classifies preparation failures and retries with a fresh setup', async () => {
+    const fixture = gameFixture();
+    const module = await fixture.load();
+    module.prepare = vi.fn().mockRejectedValueOnce(new Error('setup failed')).mockResolvedValue(module);
+    const shell = createShell(fixture.manifest);
+    shell.start();
+    click('.arcade-game');
+    await waitForState(shell, 'ERROR');
+    expect(shell.snapshot.error?.stage).toBe('preparation');
+    click('.arcade-retry');
+    await waitForState(shell, 'LAUNCHING');
+    expect(module.prepare).toHaveBeenCalledTimes(2);
+    fixture.ready.resolve();
+    await waitForState(shell, 'PLAYING');
+  });
+
   it('publishes the ordered launch, completion, teardown, and result states', async () => {
     const fixture = gameFixture();
     const states: string[] = [];

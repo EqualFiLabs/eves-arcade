@@ -11,8 +11,8 @@ import { createGameConfig } from '../../arcade/phaser/config-factory';
 import { BootScene } from './scenes/BootScene';
 import { UnsupportedBrowserScene } from './scenes/UnsupportedBrowserScene';
 import { PreloadScene } from './scenes/PreloadScene';
-import { MenuScene } from './scenes/MenuScene';
 import { FightScene } from './scenes/FightScene';
+import { prepareOperators, type RprOperatorSelection } from './operator-selection';
 
 /**
  * Rug Pull Rumble game module — implements the arcade contract (Req 2, 3).
@@ -24,7 +24,14 @@ import { FightScene } from './scenes/FightScene';
  * persist back through `ctx.updateSettings` (Req 2.2, 7.6).
  */
 export const rugPullRumbleModule: ArcadeGameModule = {
-  launch(ctx: ArcadeGameContext): ArcadeGameHandle {
+  async prepare(ctx) {
+    const selection = await prepareOperators(ctx);
+    return { launch: (gameContext) => launchRpr(gameContext, selection) };
+  },
+  launch() { throw new Error('Operator selection is required before launching'); },
+};
+
+function launchRpr(ctx: ArcadeGameContext, selection: RprOperatorSelection): ArcadeGameHandle {
     let settleReady = false;
     let resolveReadyPromise!: () => void;
     let rejectReadyPromise!: (reason: Error) => void;
@@ -52,13 +59,14 @@ export const rugPullRumbleModule: ArcadeGameModule = {
         height: 720,
         backgroundColor: '#0a0a0f',
         input: { gamepad: true },
-        scene: [BootScene, UnsupportedBrowserScene, PreloadScene, MenuScene, FightScene],
+        scene: [BootScene, UnsupportedBrowserScene, PreloadScene, FightScene],
         callbacks: {
           // preBoot runs before the first scene, closing the registry race that
           // exists when values are assigned after new Phaser.Game().
           preBoot(bootingGame) {
             bootingGame.registry.set('muted', ctx.settings.muted);
             bootingGame.registry.set('arcade', ctx);
+            bootingGame.registry.set('operatorSelection', selection);
             bootingGame.registry.set('arcadeReady', resolveReady);
             bootingGame.registry.set('arcadeReadyError', rejectReady);
           },
@@ -117,5 +125,4 @@ export const rugPullRumbleModule: ArcadeGameModule = {
     ctx.signal.addEventListener('abort', onAbort, { once: true });
     if (ctx.signal.aborted) void handle.destroy();
     return handle;
-  },
-};
+}

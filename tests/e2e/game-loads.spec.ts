@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
-import { launchRprViaShell, runningSceneKey } from './helpers';
+import { chooseRprOperators, launchRprViaShell, runningSceneKey } from './helpers';
 
 /**
  * Smoke tests through the arcade shell: the DOM shell boots, the game launches
- * into its own Phaser instance on selection, and the scene flow Boot → Preload →
- * Menu → Fight advances the simulation (Req 1, 3.5, 15.2).
+ * into its own Phaser instance after Operator selection; Boot → Preload → Fight
+ * advances the simulation (Req 1, 3.5, 15.2).
  */
 
 async function engineFrame(page: import('@playwright/test').Page): Promise<number> {
@@ -33,12 +33,17 @@ test('game selection is keyboard operable', async ({ page }) => {
   await page.keyboard.press('Tab');
   await expect(page.locator('.arcade-game').first()).toBeFocused();
   await page.keyboard.press('Enter');
+  await chooseRprOperators(page);
+  await page.getByRole('button', { name: 'Fight', exact: true }).focus();
+  await page.keyboard.press('Enter');
   await expect(page.locator('canvas')).toBeVisible({ timeout: 10_000 });
 });
 
 test('selecting a game launches its own Phaser instance into the canvas', async ({ page }) => {
   await page.goto('/');
   await page.locator('.arcade-game').first().click();
+  await chooseRprOperators(page);
+  await page.getByRole('button', { name: 'Fight', exact: true }).click();
   await expect(page.locator('canvas')).toBeVisible();
   await expect.poll(() => gameBooted(page)).toBe(true);
 });
@@ -48,7 +53,9 @@ test('repeated teardown and relaunch keeps one clean game instance (Property 3)'
 
   for (let launch = 0; launch < 3; launch += 1) {
     await page.locator('.arcade-game').first().click();
-    await expect.poll(() => runningSceneKey(page)).toBe('MenuScene');
+    await chooseRprOperators(page);
+    await page.getByRole('button', { name: 'Fight', exact: true }).click();
+    await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
     await expect(page.locator('canvas')).toHaveCount(1);
     const freshInstance = await page.evaluate(() => {
       const debug = window as unknown as { __game?: object; __previousGame?: object };
@@ -76,11 +83,10 @@ test('repeated teardown and relaunch keeps one clean game instance (Property 3)'
   }
 });
 
-test('scene flow reaches the menu and the fight steps the simulation', async ({ page }) => {
+test('prepared fight starts and steps the simulation', async ({ page }) => {
   await launchRprViaShell(page);
 
-  // Start the fight; FightScene exposes the engine on window.
-  await page.keyboard.press('Enter');
+  // FightScene exposes the engine on window.
   await expect.poll(() => engineFrame(page)).toBeGreaterThan(0);
 
   // The fixed-step loop keeps advancing frames (Req 15.3). Headless software-GL

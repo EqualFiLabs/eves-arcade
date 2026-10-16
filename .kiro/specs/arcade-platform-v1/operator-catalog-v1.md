@@ -51,5 +51,5 @@ effects and historical appearance snapshots are subsequent work.
 ## Delivery tasks
 
 - [x] Package verified data, migration, importer and read API.
-- [ ] Add preparation, selection and fight presentation.
+- [x] Add preparation, selection and fight presentation.
 - [ ] Validate browser/database flows, synchronize docs and open feature PR.

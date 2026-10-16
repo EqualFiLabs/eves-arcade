@@ -20,7 +20,7 @@
     "test:architecture": "vitest run tests/architecture",
     "test:api:integration": "bash scripts/test-postgres.sh",
     "test:unit:watch": "vitest",
-    "test:e2e": "playwright test",
+    "test:e2e": "bash scripts/test-browser.sh",
     "test:e2e:install": "playwright install --with-deps chromium",
     "check:bundle": "bash scripts/check-production-bundle.sh",
     "check:fast": "pnpm typecheck && pnpm lint && pnpm test:unit && pnpm build:all && pnpm check:bundle",

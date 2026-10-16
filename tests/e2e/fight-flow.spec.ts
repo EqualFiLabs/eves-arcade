@@ -46,8 +46,7 @@ async function effectCounts(page: import('@playwright/test').Page): Promise<{
 
 test('fighters and HUD render, input moves the player, CPU acts, KO surfaces result', async ({ page }) => {
   await launchRprViaShell(page);
-  // Enter the fight: the helper lands on MenuScene; the engine is exposed once FightScene runs.
-  await page.keyboard.press('Enter');
+  // The helper starts the prepared fight; FightScene exposes the engine.
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
 
   // Both fighters spawned at distinct positions (Req 3.1/3.2).

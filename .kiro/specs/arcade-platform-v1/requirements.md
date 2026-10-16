@@ -1,5 +1,10 @@
 # Requirements Document
 
+> **Operator extension:** [Operator catalog V1](operator-catalog-v1.md)
+> supersedes fixed visual identities, keyboard-only menu entry and unconditional
+> offline startup for RPR. Combat roles, rules, tickets and replay formats stay
+> unchanged; other games retain their existing session fallback behavior.
+
 ## Introduction
 
 Arcade Platform V1 evolves the project from a single Phaser 4 game (Rug Pull Rumble) into a multi-game crypto meme arcade: a shared shell that lists, launches, and tears down small short-session games while each game keeps its own feel, physics, and tuning. The platform shall add mobile/touch playability, a shared controls layer, a shared result/share flow, and — because players will eventually be rewarded with crypto — a verifiable score pipeline built on deterministic simulation, session tickets, and server-side replay verification. A second game, Mempool Squadron (a pseudo-3D rail shooter), shall prove the multi-game contract. Games are fun first, not protocol explainers. The platform shall not become a generic game engine; it provides boundaries and services, never gameplay abstractions.

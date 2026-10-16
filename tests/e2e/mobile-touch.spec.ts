@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { runningSceneKey } from './helpers';
+import { chooseRprOperators, runningSceneKey } from './helpers';
 
 /**
  * Task 5.4 — mobile touch e2e (Req 6.3, 6.5, 7.4, 15.2).
@@ -14,10 +14,8 @@ test('touch overlay renders and stick movement reaches the simulation', async ({
   await page.goto('/');
   await expect(page.locator('.arcade-game')).toBeVisible();
   await page.locator('.arcade-game').first().click();
-  await expect(page.locator('canvas')).toBeVisible();
-  await expect.poll(() => runningSceneKey(page)).toBe('MenuScene');
-
-  await page.keyboard.press('Enter');
+  await chooseRprOperators(page);
+  await page.getByRole('button', { name: 'Fight', exact: true }).tap();
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
 
   // The touch overlay is rendered above the canvas (Req 6.1, 6.5).
@@ -67,8 +65,8 @@ test('touch overlay renders and stick movement reaches the simulation', async ({
 test('touch overlay button press reaches the simulation', async ({ page }) => {
   await page.goto('/');
   await page.locator('.arcade-game').first().click();
-  await expect.poll(() => runningSceneKey(page)).toBe('MenuScene');
-  await page.keyboard.press('Enter');
+  await chooseRprOperators(page);
+  await page.getByRole('button', { name: 'Fight', exact: true }).tap();
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
 
   const overlay = page.locator('.touch-overlay');

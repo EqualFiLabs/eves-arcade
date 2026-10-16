@@ -17,8 +17,7 @@ async function snapshot(page: import('@playwright/test').Page): Promise<{ px: nu
 
 test('keyboard movement and attacks reach the simulation', async ({ page }) => {
   await launchRprViaShell(page);
-  // Enter the fight: the helper lands on MenuScene; the engine is exposed once FightScene runs.
-  await page.keyboard.press('Enter');
+  // The helper starts the prepared fight; FightScene exposes the engine.
   await expect.poll(() => runningSceneKey(page)).toBe('FightScene');
 
   // --- Movement (Req 5.1): holding ArrowRight walks the player toward the CPU. ---

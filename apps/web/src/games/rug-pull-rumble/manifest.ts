@@ -12,7 +12,7 @@ import { RPR_CONTRACT } from '@rpr/rug-pull-rumble-core/identity';
 export const rugPullRumbleManifest: ArcadeGameManifest = {
   contract: RPR_CONTRACT,
   title: 'Rug Pull Rumble',
-  tagline: 'Sminem vs Bogdanoff — proof of fight',
+  tagline: 'Choose your Operator — proof of fight',
   orientation: 'landscape',
   capabilities: { input: { keyboard: true, pointer: false, touch: true, gamepad: true }, suspension: true },
   localBest: { metric: 'score', label: 'Personal Best', order: 'desc' },

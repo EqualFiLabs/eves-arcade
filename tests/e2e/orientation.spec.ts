@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { chooseRprOperators } from './helpers';
 
 /**
  * Req 7.3 — orientation gate. Rug Pull Rumble is landscape-only; in portrait the
@@ -9,6 +10,8 @@ import { test, expect } from '@playwright/test';
 test('rotate prompt appears for Rug Pull Rumble when held in portrait', async ({ page }) => {
   await page.goto('/');
   await page.locator('.arcade-game').first().click();
+  await chooseRprOperators(page);
+  await page.getByRole('button', { name: 'Fight', exact: true }).tap();
   await expect(page.locator('canvas')).toBeVisible();
 
   // RPR declares landscape; a portrait viewport must trigger the rotate overlay.
@@ -18,6 +21,8 @@ test('rotate prompt appears for Rug Pull Rumble when held in portrait', async ({
 test('rotating to landscape clears the rotate prompt', async ({ page }) => {
   await page.goto('/');
   await page.locator('.arcade-game').first().click();
+  await chooseRprOperators(page);
+  await page.getByRole('button', { name: 'Fight', exact: true }).tap();
   await expect(page.locator('.arcade-rotate')).toBeVisible();
 
   // Flip to landscape: viewport wider than tall.
