@@ -52,4 +52,4 @@ effects and historical appearance snapshots are subsequent work.
 
 - [x] Package verified data, migration, importer and read API.
 - [x] Add preparation, selection and fight presentation.
-- [ ] Validate browser/database flows, synchronize docs and open feature PR.
+- [x] Validate browser/database flows and synchronize governing documentation.

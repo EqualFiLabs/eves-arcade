@@ -37,7 +37,9 @@ pnpm --filter @rpr/api operators:import
 
 Packaging requires only local export files. Compressed bytes are deterministic
 for the same Node/zlib version; decoded content is digest-verified across
-versions. Import requires DATABASE_URL, validates all records before storage,
+versions. The committed gzip SHA-256 is
+`1660b596e32ea8faf29c07fc81598ad2bd60d74a5127caf56f333c677f391c01`.
+Import requires DATABASE_URL, validates all records before storage,
 uses one transaction and an advisory lock, and can safely be repeated. Failures
 leave existing rows intact. Repeat import repairs missing or altered records.
 The importer does not remove unrelated verification data. Production images
@@ -61,3 +63,28 @@ artwork versions: 404. Selection requires both portraits before Fight and
 ticket issuance. Player/CPU roles remain distinct even in mirror matches.
 Graphics work consumes the frozen appearance pair; changing cosmetics must
 never change deterministic combat inputs, rules or result hashes.
+
+## Validation evidence
+
+Local validation on 2026-10-15:
+
+- `pnpm check:fast`: strict types, lint, 293 unit/architecture tests, API/web
+  production builds and production fixture exclusion passed. Nine
+  database-gated tests are skipped in this command and executed separately.
+- `pnpm test:api:integration`: nine real PostgreSQL tests passed, including
+  every SVG/trait, idempotency, invalid dataset rejection, rollback after an
+  injected SQL failure, API errors and artwork responses.
+- `CI=1 pnpm test:e2e --workers=2 --retries=0`: 27 tests passed against a seeded
+  PostgreSQL API with RPC configuration removed. Coverage includes randomization
+  races, explicit mirrors, retries, cancellation, keyboard/touch, completed
+  verified fights, rematches and old-format replays.
+- The production API Docker image passed fresh-database migration/import,
+  readiness, metadata and SVG checks without RPC configuration. The seed
+  recompressed identically and all 5,555 SVGs matched the source export.
+- Independent local agent review found a randomization race, fixed with a
+  regression and re-reviewed without remaining actionable findings.
+
+Run Docker network-changing checks separately from browser tests: creating or
+removing unrelated Docker networks during Chromium requests caused
+`ERR_NETWORK_CHANGED` in local test runs. These are local validation results,
+not evidence of a production deployment or an independent third-party audit.
